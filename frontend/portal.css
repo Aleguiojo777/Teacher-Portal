@@ -1,0 +1,87 @@
+*{
+box-sizing:border-box;
+font-family:Arial, sans-serif;
+}
+
+body{
+margin:0;
+background:#f1f5f9;
+}
+
+.navbar{
+background:#2563eb;
+padding:15px 40px;
+display:flex;
+justify-content:space-between;
+color:white;
+}
+
+.navbar ul{
+list-style:none;
+display:flex;
+gap:20px;
+}
+
+.navbar a{
+color:white;
+text-decoration:none;
+font-weight:bold;
+}
+
+.container{
+max-width:1000px;
+margin:30px auto;
+}
+
+.card{
+background:white;
+padding:22px;
+border-radius:14px;
+box-shadow:0 8px 25px rgba(0,0,0,.12);
+margin-bottom:22px;
+}
+
+.form-grid{
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:12px;
+}
+
+input,select{
+padding:10px;
+border-radius:8px;
+border:1px solid #d1d5db;
+}
+
+button{
+background:#2563eb;
+color:white;
+border:none;
+padding:10px 16px;
+border-radius:8px;
+cursor:pointer;
+font-weight:bold;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+th{
+background:#2563eb;
+color:white;
+padding:10px;
+}
+
+td{
+padding:10px;
+text-align:center;
+}
+
+tr:nth-child(even){
+background:#f1f5f9;
+}
+
+.present{color:green;font-weight:bold;}
+.absent{color:red;font-weight:bold;}

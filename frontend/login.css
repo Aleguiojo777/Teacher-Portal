@@ -1,0 +1,91 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    height: 100vh;
+    /* Changed background to light gray so the white card is visible */
+    background: #f0f2f5; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-container {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column; 
+    align-items: center;
+}
+
+.logo-area {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 25px; 
+}
+
+.site-logo {
+    width: 140px; 
+    height: auto;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3)); 
+}
+
+.login-card {
+    background: #ffffff; /* Card is now white */
+    padding: 30px;
+    border-radius: 12px;
+    
+    /* Added the blue border here */
+    border: 2px solid #2563eb; 
+    
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    width: 100%;
+}
+
+.login-card h2 {
+    text-align: center;
+    margin: 0 0 5px 0;
+    color: #1e293b;
+}
+
+.login-card p {
+    text-align: center;
+    color: #6b7280;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 14px;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+button:hover {
+    background: #1e40af;
+}

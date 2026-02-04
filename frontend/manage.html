@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Manage Students</title>
+<link rel="stylesheet" href="portal.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="logo">Student Portal</div>
+  <ul>
+    <li><a href="portal.html">Home</a></li>
+    <li><a href="manage.html">Manage Students</a></li>
+    <li><a href="attendance.html">Attendance</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+
+<div class="card">
+<h2>Add / Update Student</h2>
+
+<div class="form-grid">
+  <input id="name" placeholder="Student Name">
+  <input id="course" placeholder="Course">
+  <input id="section" placeholder="Section">
+</div>
+
+<button id="studentBtn" onclick="saveStudent()">Add Student</button>
+</div>
+
+<div class="card">
+<h2>Student Records</h2>
+
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Name</th>
+<th>Course</th>
+<th>Section</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="studentList"></tbody>
+</table>
+
+</div>
+</div>
+
+<script src="portal.js"></script>
+</body>
+</html>

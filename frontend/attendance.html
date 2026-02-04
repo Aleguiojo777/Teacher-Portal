@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Attendance</title>
+<link rel="stylesheet" href="portal.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="logo">Student Portal</div>
+  <ul>
+    <li><a href="portal.html">Home</a></li>
+    <li><a href="manage.html">Manage Students</a></li>
+    <li><a href="attendance.html">Attendance</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+
+<div class="card">
+<h2>Select Section</h2>
+<select id="attendanceSection" onchange="loadAttendance()"></select>
+</div>
+
+<div class="card">
+<h2>Mark Attendance</h2>
+
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Name</th>
+<th>Course</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="attendanceList"></tbody>
+</table>
+
+</div>
+
+</div>
+
+<script src="portal.js"></script>
+</body>
+</html>
