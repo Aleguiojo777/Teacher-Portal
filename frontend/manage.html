@@ -21,9 +21,11 @@
 <h2>Add / Update Student</h2>
 
 <div class="form-grid">
-  <input id="name" placeholder="Student Name">
-  <input id="course" placeholder="Course">
-  <input id="section" placeholder="Section">
+  <input id="firstName" placeholder="First Name" required>
+  <input id="lastName" placeholder="Last Name" required>
+  <input id="contactNo" placeholder="Contact No." required>
+  <input id="course" placeholder="Course" required>
+  <input id="section" placeholder="Section" required>
 </div>
 
 <button id="studentBtn" onclick="saveStudent()">Add Student</button>
@@ -36,7 +38,9 @@
 <thead>
 <tr>
 <th>#</th>
-<th>Name</th>
+<th>First Name</th>
+<th>Last Name</th>
+<th>Contact No.</th>
 <th>Course</th>
 <th>Section</th>
 <th>Action</th>

@@ -1,18 +1,27 @@
 /* ===========================
-   STUDENT DATA (PERSISTENT)
+   STUDENT DATA (FROM API)
 =========================== */
 
-let students = JSON.parse(localStorage.getItem("students")) || [];
-let editIndex = -1;
-
+let students = [];
+let editingId = null;
+const API_BASE = 'http://localhost:3000/api';
 
 /* ===========================
-   SAVE TO STORAGE
+   LOAD STUDENTS FROM API
 =========================== */
 
-function persist(){
-    localStorage.setItem("students", JSON.stringify(students));
-    loadSections();   // refresh attendance dropdown
+async function loadStudents(){
+    try {
+        const response = await fetch(`${API_BASE}/students`);
+        if(response.ok){
+            students = await response.json();
+            renderStudents();
+            loadSections();
+        }
+    } catch(error){
+        console.error('Error loading students:', error);
+        alert('Error loading students');
+    }
 }
 
 
@@ -20,38 +29,68 @@ function persist(){
    MANAGE STUDENTS (CRUD)
 =========================== */
 
-function saveStudent(){
-    const name = document.getElementById("name").value;
+async function saveStudent(){
+    const firstName = document.getElementById("firstName").value;
+    const lastName = document.getElementById("lastName").value;
+    const contactNo = document.getElementById("contactNo").value;
     const course = document.getElementById("course").value;
     const section = document.getElementById("section").value;
     const btn = document.getElementById("studentBtn");
 
-    if(!name || !course || !section){
+    if(!firstName || !lastName || !contactNo || !course || !section){
         alert("Fill all fields");
         return;
     }
 
-    if(editIndex === -1){
-        // ADD STUDENT
-        students.push({
-            name,
-            course,
-            section,
-            status: "Absent"
-        });
-    } else {
-        // UPDATE STUDENT
-        students[editIndex].name = name;
-        students[editIndex].course = course;
-        students[editIndex].section = section;
+    try {
+        let response;
+        
+        if(editingId === null){
+            // ADD NEW STUDENT
+            response = await fetch(`${API_BASE}/students`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    firstName,
+                    lastName,
+                    contactNo,
+                    course,
+                    section
+                })
+            });
+        } else {
+            // UPDATE STUDENT
+            response = await fetch(`${API_BASE}/students/${editingId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    firstName,
+                    lastName,
+                    contactNo,
+                    course,
+                    section
+                })
+            });
+        }
 
-        editIndex = -1;
-        btn.textContent = "Add Student";
+        if(response.ok){
+            alert(editingId === null ? 'Student added successfully!' : 'Student updated successfully!');
+            editingId = null;
+            btn.textContent = "Add Student";
+            clearForm();
+            loadStudents();
+        } else {
+            const error = await response.json();
+            alert('Error: ' + error.error);
+        }
+    } catch(error){
+        console.error('Error saving student:', error);
+        alert('Error saving student');
     }
-
-    persist();
-    renderStudents();
-    clearForm();
 }
 
 function renderStudents(){
@@ -60,45 +99,67 @@ function renderStudents(){
 
     list.innerHTML = "";
 
-    students.forEach((s,i)=>{
+    students.forEach((s, i)=>{
         list.innerHTML += `
         <tr>
             <td>${i+1}</td>
-            <td>${s.name}</td>
+            <td>${s.firstName}</td>
+            <td>${s.lastName}</td>
+            <td>${s.contactNo}</td>
             <td>${s.course}</td>
             <td>${s.section}</td>
             <td>
-                <button onclick="editStudent(${i})">Edit</button>
-                <button onclick="deleteStudent(${i})">Delete</button>
+                <button onclick="editStudent(${s.id})">Edit</button>
+                <button onclick="deleteStudent(${s.id})">Delete</button>
             </td>
         </tr>
         `;
     });
 }
 
-function editStudent(i){
-    document.getElementById("name").value = students[i].name;
-    document.getElementById("course").value = students[i].course;
-    document.getElementById("section").value = students[i].section;
+function editStudent(id){
+    const student = students.find(s => s.id === id);
+    if(!student) return;
 
-    editIndex = i;
+    document.getElementById("firstName").value = student.firstName;
+    document.getElementById("lastName").value = student.lastName;
+    document.getElementById("contactNo").value = student.contactNo;
+    document.getElementById("course").value = student.course;
+    document.getElementById("section").value = student.section;
+
+    editingId = id;
     document.getElementById("studentBtn").textContent = "Update Student";
 }
 
-function deleteStudent(i){
-    if(confirm("Delete student?")){
-        students.splice(i,1);
-        persist();
-        renderStudents();
+async function deleteStudent(id){
+    if(confirm("Delete this student?")){
+        try {
+            const response = await fetch(`${API_BASE}/students/${id}`, {
+                method: 'DELETE'
+            });
+
+            if(response.ok){
+                alert('Student deleted successfully!');
+                loadStudents();
+            } else {
+                const error = await response.json();
+                alert('Error: ' + error.error);
+            }
+        } catch(error){
+            console.error('Error deleting student:', error);
+            alert('Error deleting student');
+        }
     }
 }
 
 function clearForm(){
-    document.getElementById("name").value = "";
+    document.getElementById("firstName").value = "";
+    document.getElementById("lastName").value = "";
+    document.getElementById("contactNo").value = "";
     document.getElementById("course").value = "";
     document.getElementById("section").value = "";
 
-    editIndex = -1;
+    editingId = null;
     document.getElementById("studentBtn").textContent = "Add Student";
 }
 
@@ -135,18 +196,19 @@ function loadAttendance(){
 
     list.innerHTML = "";
 
-    students.forEach((s,index)=>{
+    students.forEach((s, index)=>{
         if(s.section === sec){
+            const fullName = `${s.firstName} ${s.lastName}`;
             list.innerHTML += `
             <tr>
                 <td>${index+1}</td>
-                <td>${s.name}</td>
+                <td>${fullName}</td>
                 <td>${s.course}</td>
                 <td class="${s.status === "Present" ? "present" : "absent"}">
-                    ${s.status}
+                    ${s.status || "Absent"}
                 </td>
                 <td>
-                    <button onclick="toggleStatus(${index})">Toggle</button>
+                    <button onclick="toggleStatus(${s.id})">Toggle</button>
                 </td>
             </tr>
             `;
@@ -154,9 +216,11 @@ function loadAttendance(){
     });
 }
 
-function toggleStatus(index){
-    students[index].status =
-        students[index].status === "Present" ? "Absent" : "Present";
+function toggleStatus(id){
+    const student = students.find(s => s.id === id);
+    if(!student) return;
+    
+    student.status = student.status === "Present" ? "Absent" : "Present";
 
     // ONLY refresh table — NOT sections
     loadAttendance();
@@ -168,5 +232,4 @@ function toggleStatus(index){
    AUTO LOAD WHEN PAGE OPENS
 =========================== */
 
-renderStudents();
-loadSections();
+loadStudents();
