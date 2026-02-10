@@ -11,6 +11,13 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
+// Add a relaxed Content Security Policy so the frontend can connect back to the API
+app.use((req, res, next) => {
+  // Allow same-origin resources and connections to localhost API during development
+  res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self' http://localhost:3000 ws://localhost:3000; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval';");
+  next();
+});
+
 // Serve static files from the frontend folder
 app.use(express.static(path.join(__dirname, '../frontend')));
 

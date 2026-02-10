@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "tunnel": "ngrok http 3000",
+    "tunnel:lt": "npx localtunnel --port 3000"
   },
   "keywords": [],
   "author": "",

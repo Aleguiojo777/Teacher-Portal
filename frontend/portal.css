@@ -91,3 +91,28 @@ background:#f1f5f9;
 .message.error { background: #fff1f2; color:#9b1c1c }
 .message.success { background:#ecfdf5; color:#14532d }
 .message.loading { background:#eff6ff; color:#1e3a8a }
+
+/* Responsive tweaks */
+.table-responsive{overflow-x:auto;margin:8px 0}
+
+@media (max-width: 900px){
+	.container{padding:0 16px}
+	.navbar{padding:12px 20px}
+	.form-grid{grid-template-columns:repeat(2,1fr)}
+}
+
+@media (max-width: 600px){
+	.navbar{flex-direction:column;align-items:flex-start;gap:8px}
+	.navbar ul{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0}
+	.navbar .logo{font-size:18px}
+	.container{margin:12px auto}
+	.form-grid{grid-template-columns:1fr}
+	.card{padding:16px}
+	th, td{font-size:13px;padding:8px}
+	.logo{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+
+@media (max-width: 400px){
+	.navbar{padding:10px}
+	button{padding:10px}
+}

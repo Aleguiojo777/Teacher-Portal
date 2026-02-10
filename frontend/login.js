@@ -1,3 +1,16 @@
+// Compute API base once and attach to window to avoid redeclaration errors
+window.API_BASE = window.API_BASE || (function(){
+  try{
+    const origin = window.location.origin;
+    const host = window.location.hostname;
+    if(host === 'localhost' || host === '127.0.0.1') return 'http://localhost:3000/api';
+    return origin + '/api';
+  }catch(e){
+    return 'http://localhost:3000/api';
+  }
+})();
+const API_BASE_LOCAL = window.API_BASE;
+
 // Login form handler
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -10,7 +23,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     messageDiv.textContent = 'Logging in...';
     messageDiv.className = 'message loading';
 
-    const response = await fetch('http://localhost:3000/api/admin/login', {
+    const response = await fetch(`${API_BASE_LOCAL}/admin/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -41,7 +54,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     }
   } catch (error) {
     console.error('Login error:', error);
-    messageDiv.textContent = 'Error: Could not connect to server. Make sure the backend is running on http://localhost:3000';
+    messageDiv.textContent = `Error: Could not connect to server. Make sure the backend is running and reachable from this device (${API_BASE_LOCAL})`;
     messageDiv.className = 'message error';
   }
 });

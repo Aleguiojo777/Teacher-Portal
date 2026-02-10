@@ -136,6 +136,14 @@ body {
     border: 1px solid #bfdbfe;
 }
 
+/* Small-screen adjustments for login */
+@media (max-width: 420px){
+    .site-logo{width:120px}
+    .login-card{padding:20px}
+    .login-card h2{font-size:20px}
+    .site-logo{filter:none}
+}
+
 .register-link {
     text-align: center;
     margin-top: 20px;

@@ -1,4 +1,17 @@
-const UM_API_BASE = (typeof API_BASE !== 'undefined') ? API_BASE : 'http://localhost:3000/api';
+// Ensure a single global API_BASE is used to avoid redeclaration errors when pages
+// load multiple scripts (portal.js + user-management.js)
+window.API_BASE = window.API_BASE || (function(){
+  try{
+    const origin = window.location.origin;
+    const host = window.location.hostname;
+    if(host === 'localhost' || host === '127.0.0.1') return 'http://localhost:3000/api';
+    return origin + '/api';
+  }catch(e){
+    return 'http://localhost:3000/api';
+  }
+})();
+const API_BASE_LOCAL = window.API_BASE;
+const UM_API_BASE = API_BASE_LOCAL;
 
 // Simple helper to set message
 function setMessage(text, type){

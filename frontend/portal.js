@@ -4,7 +4,18 @@
 
 let students = [];
 let editingId = null;
-const API_BASE = 'http://localhost:3000/api';
+// Compute API base once globally so multiple pages/scripts don't redeclare it
+window.API_BASE = window.API_BASE || (function(){
+    try{
+        const origin = window.location.origin;
+        const host = window.location.hostname;
+        if(host === 'localhost' || host === '127.0.0.1') return 'http://localhost:3000/api';
+        return origin + '/api';
+    }catch(e){
+        return 'http://localhost:3000/api';
+    }
+})();
+const API_BASE = window.API_BASE;
 
 /* ===========================
    LOAD STUDENTS FROM API
