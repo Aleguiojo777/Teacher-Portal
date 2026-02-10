@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Student Portal</title>
 <link rel="stylesheet" href="portal.css">
 </head>
@@ -9,18 +11,83 @@
 <nav class="navbar">
   <div class="logo">Student Portal</div>
   <ul>
-    <li><a href="portal.html">Home</a></li>
-    <li><a href="manage.html">Manage Students</a></li>
-    <li><a href="attendance.html">Attendance</a></li>
+    <li><a href="#" data-section="home" class="nav-link">Home</a></li>
+    <li><a href="#" data-section="manage" class="nav-link">Manage Students</a></li>
+    <li><a href="#" data-section="attendance" class="nav-link">Attendance</a></li>
+    <li id="userMgmtNav" class="hidden"><a href="user-management.html">User Management</a></li>
+    <li id="logoutNav" class="hidden"><a href="#" id="logoutLink">Logout</a></li>
   </ul>
 </nav>
 
 <div class="container">
-  <div class="card welcome">
-    <h2>Welcome Teacher 👋</h2>
-    <p>Use the menu to manage students and attendance.</p>
-  </div>
+  <section id="section-home" class="section">
+    <div class="card welcome">
+      <h2 id="welcomeTitle">Welcome</h2>
+      <p id="welcomeText">Use the menu to manage students and attendance.</p>
+    </div>
+  </section>
+
+  <section id="section-manage" class="section hidden-section">
+    <div class="card">
+      <h2>Add / Update Student</h2>
+      <div class="form-grid">
+        <input id="firstName" placeholder="First Name" required>
+        <input id="lastName" placeholder="Last Name" required>
+        <input id="contactNo" placeholder="Contact No." required>
+        <input id="course" placeholder="Course" required>
+        <input id="section" placeholder="Section" required>
+      </div>
+      <button id="studentBtn" onclick="saveStudent()">Add Student</button>
+    </div>
+
+    <div class="card">
+      <h2>Student Records</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Contact No.</th>
+            <th>Course</th>
+            <th>Section</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="studentList"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="section-attendance" class="section hidden-section">
+    <div class="card">
+      <h2>Select Section</h2>
+      <label for="attendanceSection">Select Section</label>
+      <select id="attendanceSection" onchange="loadAttendance()"></select>
+    </div>
+
+    <div class="card">
+      <h2>Mark Attendance</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Course</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="attendanceList"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- User Management is a separate page: user-management.html -->
+
 </div>
+
+<script src="portal.js"></script>
 
 </body>
 </html>

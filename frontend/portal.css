@@ -85,3 +85,9 @@ background:#f1f5f9;
 
 .present{color:green;font-weight:bold;}
 .absent{color:red;font-weight:bold;}
+
+/* Feedback messages used by forms */
+.message { margin-bottom: 12px; padding:10px; border-radius:8px }
+.message.error { background: #fff1f2; color:#9b1c1c }
+.message.success { background:#ecfdf5; color:#14532d }
+.message.loading { background:#eff6ff; color:#1e3a8a }

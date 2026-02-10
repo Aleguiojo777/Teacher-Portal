@@ -2,40 +2,40 @@
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
   const messageDiv = document.getElementById('message');
 
   try {
-    // Show loading state
     messageDiv.textContent = 'Logging in...';
     messageDiv.className = 'message loading';
 
-    // Send login request to backend
-    const response = await fetch('http://localhost:3000/api/login', {
+    const response = await fetch('http://localhost:3000/api/admin/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ email, password })
     });
 
     const data = await response.json();
 
     if (response.ok && data.success) {
-      // Login successful
       messageDiv.textContent = 'Login successful! Redirecting...';
       messageDiv.className = 'message success';
 
-      // Store user info in localStorage
-      localStorage.setItem('user', JSON.stringify(data.user));
+      // Normalize admin flags to numbers to avoid strict equality issues elsewhere
+      if (data.admin) {
+        data.admin.isAdmin = Number(data.admin.isAdmin || 0);
+        data.admin.isMain = Number(data.admin.isMain || 0);
+      }
+      localStorage.setItem('admin', JSON.stringify(data.admin));
+      localStorage.setItem('token', data.token);
 
-      // Redirect to portal after 1 second
       setTimeout(() => {
         window.location.href = 'portal.html';
       }, 1000);
     } else {
-      // Login failed
       messageDiv.textContent = data.error || 'Login failed';
       messageDiv.className = 'message error';
     }
@@ -45,3 +45,5 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     messageDiv.className = 'message error';
   }
 });
+
+

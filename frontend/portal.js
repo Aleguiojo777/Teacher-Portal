@@ -12,7 +12,10 @@ const API_BASE = 'http://localhost:3000/api';
 
 async function loadStudents(){
     try {
-        const response = await fetch(`${API_BASE}/students`);
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE}/students`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
         if(response.ok){
             students = await response.json();
             renderStudents();
@@ -47,10 +50,12 @@ async function saveStudent(){
         
         if(editingId === null){
             // ADD NEW STUDENT
+            const token = localStorage.getItem('token');
             response = await fetch(`${API_BASE}/students`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
                 },
                 body: JSON.stringify({
                     firstName,
@@ -62,10 +67,12 @@ async function saveStudent(){
             });
         } else {
             // UPDATE STUDENT
+            const token = localStorage.getItem('token');
             response = await fetch(`${API_BASE}/students/${editingId}`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
                 },
                 body: JSON.stringify({
                     firstName,
@@ -134,8 +141,10 @@ function editStudent(id){
 async function deleteStudent(id){
     if(confirm("Delete this student?")){
         try {
+            const token = localStorage.getItem('token');
             const response = await fetch(`${API_BASE}/students/${id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
             });
 
             if(response.ok){
@@ -231,5 +240,69 @@ function toggleStatus(id){
 /* ===========================
    AUTO LOAD WHEN PAGE OPENS
 =========================== */
+// Show/hide User Management link and welcome message based on logged-in user
+function applyUserVisibility(){
+    const storedAdmin = JSON.parse(localStorage.getItem('admin') || 'null');
+    const userMgmtNav = document.getElementById('userMgmtNav');
+    const welcomeTitle = document.getElementById('welcomeTitle');
+    const welcomeText = document.getElementById('welcomeText');
+    const logoutNav = document.getElementById('logoutNav');
+    const logoutLink = document.getElementById('logoutLink');
 
+    if(storedAdmin){
+        const role = Number(storedAdmin.isAdmin) === 1 ? 'Administrator' : 'Teacher';
+        if(welcomeTitle) welcomeTitle.textContent = `Welcome ${storedAdmin.fullName || '' } 👋`;
+        if(welcomeText) welcomeText.textContent = `Signed in as ${role}`;
+        if(userMgmtNav) userMgmtNav.style.display = Number(storedAdmin.isAdmin) === 1 ? 'list-item' : 'none';
+        if(logoutNav) logoutNav.style.display = 'list-item';
+        if(logoutLink) {
+            logoutLink.addEventListener('click', (e) => { e.preventDefault(); logout(); });
+        }
+    } else {
+        if(welcomeTitle) welcomeTitle.textContent = 'Welcome';
+        if(welcomeText) welcomeText.textContent = 'Please login.';
+        if(userMgmtNav) userMgmtNav.style.display = 'none';
+        if(logoutNav) logoutNav.style.display = 'none';
+    }
+}
+
+function logout(){
+    localStorage.removeItem('admin');
+    localStorage.removeItem('token');
+    window.location.href = 'login.html';
+}
+
+applyUserVisibility();
 loadStudents();
+
+// Section switching (show/hide in-page sections)
+function showSection(name){
+    const sections = ['home','manage','attendance','users'];
+    sections.forEach(s => {
+        const el = document.getElementById('section-' + s);
+        if(!el) return;
+        el.style.display = (s === name) ? '' : 'none';
+    });
+
+    // Update active nav link
+    document.querySelectorAll('.nav-link').forEach(link => {
+        if(link.dataset.section === name) link.classList.add('active'); else link.classList.remove('active');
+    });
+
+    // Load data for specific sections
+    if(name === 'manage') loadStudents();
+    if(name === 'attendance') { loadSections(); }
+    if(name === 'users' && typeof loadUsers === 'function') loadUsers();
+}
+
+// Wire nav links
+document.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const sec = link.dataset.section || 'home';
+        showSection(sec);
+    });
+});
+
+// Default to home
+showSection('home');

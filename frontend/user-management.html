@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Management</title>
+<link rel="stylesheet" href="portal.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="logo">Student Portal</div>
+  <ul>
+    <li><a href="portal.html">Home</a></li>
+    <li><a href="manage.html">Manage Students</a></li>
+    <li><a href="attendance.html">Attendance</a></li>
+    <li><a href="user-management.html">User Management</a></li>
+    <li id="logoutNav"><a href="#" id="logoutLink">Logout</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+
+<div class="card">
+  <h2>User Management</h2>
+  <p>Admins can create new administrators or teachers here.</p>
+
+  <div id="message" class="message"></div>
+
+  <form id="userCreateForm">
+    <div class="form-grid">
+      <input type="text" id="userFullName" placeholder="Full name" required>
+      <input type="email" id="userEmail" placeholder="Email" required>
+      <input type="password" id="userPassword" placeholder="Password" required>
+      <label for="userRole">Role:</label>
+      <select id="userRole">
+        <option value="teacher">Teacher</option>
+        <option value="admin">Administrator</option>
+      </select>
+    </div>
+
+    <button type="submit">Create User</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Existing Users</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="usersBody"></tbody>
+  </table>
+</div>
+
+</div>
+
+<script src="portal.js"></script>
+<script src="user-management.js"></script>
+</body>
+</html>

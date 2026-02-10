@@ -4,17 +4,17 @@
 
 body {
     margin: 0;
-    height: 100vh;
-    /* Changed background to light gray so the white card is visible */
+    min-height: 100vh;
     background: #f0f2f5; 
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 20px;
 }
 
 .login-container {
     width: 100%;
-    max-width: 360px;
+    max-width: 450px;
     display: flex;
     flex-direction: column; 
     align-items: center;
@@ -34,13 +34,10 @@ body {
 }
 
 .login-card {
-    background: #ffffff; /* Card is now white */
+    background: #ffffff;
     padding: 30px;
     border-radius: 12px;
-    
-    /* Added the blue border here */
     border: 2px solid #2563eb; 
-    
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
     width: 100%;
 }
@@ -49,31 +46,50 @@ body {
     text-align: center;
     margin: 0 0 5px 0;
     color: #1e293b;
+    font-size: 24px;
 }
 
 .login-card p {
     text-align: center;
     color: #6b7280;
     font-size: 14px;
-    margin-bottom: 20px;
+    margin: 0 0 20px 0;
 }
 
-.input-group input {
+.input-group {
+    margin-bottom: 15px;
+}
+
+.input-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 5px;
+}
+
+.input-group input[type="text"],
+.input-group input[type="email"],
+.input-group input[type="password"] {
     width: 100%;
     padding: 12px;
-    margin-bottom: 15px;
     border-radius: 8px;
     border: 1px solid #d1d5db;
     font-size: 14px;
+    transition: border-color 0.3s ease;
 }
 
-.input-group input:focus {
+.input-group input[type="text"]:focus,
+.input-group input[type="email"]:focus,
+.input-group input[type="password"]:focus {
     outline: none;
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-button {
+
+
+.btn-primary {
     width: 100%;
     padding: 12px;
     border: none;
@@ -86,7 +102,7 @@ button {
     transition: background 0.3s ease;
 }
 
-button:hover {
+.btn-primary:hover {
     background: #1e40af;
 }
 
@@ -118,4 +134,28 @@ button:hover {
     background: #dbeafe;
     color: #1e40af;
     border: 1px solid #bfdbfe;
+}
+
+.register-link {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.register-link p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.register-link a {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.register-link a:hover {
+    color: #1e40af;
 }

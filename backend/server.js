@@ -26,6 +26,37 @@ const db = new sqlite3.Database(path.join(__dirname, 'database.db'), (err) => {
 
 // Initialize database tables
 function initializeDatabase() {
+  // Create admins table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS admins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fullName TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      isAdmin BOOLEAN DEFAULT 1,
+      isMain INTEGER DEFAULT 0,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `, (err) => {
+    if (err) {
+      console.error('Error creating admins table:', err.message);
+    } else {
+      console.log('Admins table ready');
+    }
+  });
+
+  // Ensure legacy databases have `isMain` column
+  db.all("PRAGMA table_info(admins)", (err, cols) => {
+    if (err) return;
+    const hasIsMain = cols && cols.some(c => c.name === 'isMain');
+    if (!hasIsMain) {
+      db.run('ALTER TABLE admins ADD COLUMN isMain INTEGER DEFAULT 0', (alterErr) => {
+        if (alterErr) console.error('Error adding isMain column:', alterErr.message);
+        else console.log('Migrated admins table: added isMain column');
+      });
+    }
+  });
+
   db.run(`
     CREATE TABLE IF NOT EXISTS students (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +65,9 @@ function initializeDatabase() {
       contactNo TEXT NOT NULL,
       course TEXT NOT NULL,
       section TEXT NOT NULL,
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      createdBy INTEGER,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(createdBy) REFERENCES admins(id)
     )
   `, (err) => {
     if (err) {
@@ -44,62 +77,177 @@ function initializeDatabase() {
     }
   });
 }
+  // Insert default admin account if it doesn't exist
+  const defaultAdminEmail = 'aleguiojoaljey@gmail.com';
+  const defaultAdminName = 'Default Admin';
+  const defaultAdminPassword = 'admin123';
 
-// Sample user data (In production, use a real database)
-const users = [
-  {
-    id: 1,
-    username: 'teacher1',
-    password: 'teacher123' // In production, store hashed passwords
-  },
-  {
-    id: 2,
-    username: 'teacher2',
-    password: 'teacher123' // In production, store hashed passwords
-  }
-];
+  db.get('SELECT id FROM admins WHERE email = ?', [defaultAdminEmail], (err, row) => {
+    if (err) {
+      console.error('Error checking default admin:', err.message);
+      return;
+    }
 
-// Login endpoint
-app.post('/api/login', async (req, res) => {
+    if (row) {
+      console.log('Default admin already exists');
+      return;
+    }
+
+    // Hash the default password and insert the admin (mark as main)
+    bcrypt.hash(defaultAdminPassword, 10)
+      .then((hashed) => {
+        const insertSql = 'INSERT INTO admins (fullName, email, password, isAdmin, isMain) VALUES (?, ?, ?, ?, ?)';
+        db.run(insertSql, [defaultAdminName, defaultAdminEmail, hashed, 1, 1], function(insertErr) {
+          if (insertErr) {
+            console.error('Error creating default admin:', insertErr.message);
+          } else {
+            console.log('Default admin created (main):', defaultAdminEmail);
+          }
+        });
+      })
+      .catch((hashErr) => {
+        console.error('Error hashing default admin password:', hashErr);
+      });
+  });
+
+
+// ============= ADMIN AUTHENTICATION =============
+
+// Admin Registration endpoint
+// Register new user (admin or teacher) - only allowed for logged-in admins
+app.post('/api/admin/register', verifyToken, async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { fullName, email, password, isAdmin } = req.body;
 
     // Validate input
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
+    if (!fullName || !email || !password) {
+      return res.status(400).json({ error: 'Full name, email, and password are required' });
     }
 
-    // Find user
-    const user = users.find(u => u.username === username);
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid username or password' });
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
 
-    // Check password (for production, use bcrypt.compare)
-    if (user.password !== password) {
-      return res.status(401).json({ error: 'Invalid username or password' });
+    // Ensure requester is an admin
+    db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], async (err, requester) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!requester || Number(requester.isAdmin) !== 1) {
+        return res.status(403).json({ error: 'Forbidden: Only administrators can create users' });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Insert user into database (isMain defaults to 0)
+      const sql = 'INSERT INTO admins (fullName, email, password, isAdmin, isMain) VALUES (?, ?, ?, ?, ?)';
+      db.run(sql, [fullName, email, hashedPassword, isAdmin ? 1 : 0, 0], function(insertErr) {
+        if (insertErr) {
+          if (insertErr.message.includes('UNIQUE constraint failed')) {
+            return res.status(400).json({ error: 'Email already registered' });
+          }
+          return res.status(500).json({ error: insertErr.message });
+        }
+
+        // Return success with created user info
+        res.status(201).json({
+          success: true,
+          message: 'User registered successfully',
+          user: {
+            id: this.lastID,
+            fullName,
+            email,
+            isAdmin: isAdmin ? 1 : 0
+          }
+        });
+      });
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Server error during registration' });
+  }
+});
+
+// Admin Login endpoint
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    // Return success (In production, generate JWT token)
-    return res.status(200).json({
-      success: true,
-      message: 'Login successful',
-      user: {
-        id: user.id,
-        username: user.username
+    // Find admin by email
+    db.get('SELECT * FROM admins WHERE email = ?', [email], async (err, admin) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+
+      if (!admin) {
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+
+      // Compare passwords
+      try {
+        const validPassword = await bcrypt.compare(password, admin.password);
+        
+        if (!validPassword) {
+          return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        // Login successful
+        res.status(200).json({
+          success: true,
+          message: 'Login successful',
+          admin: {
+            id: admin.id,
+            fullName: admin.fullName,
+            email: admin.email,
+            isAdmin: admin.isAdmin,
+            isMain: admin.isMain || 0
+          },
+          token: generateToken(admin.id)
+        });
+      } catch (bcryptError) {
+        console.error('Password comparison error:', bcryptError);
+        res.status(500).json({ error: 'Error during authentication' });
       }
     });
-
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
+// Token generation helper (simple JWT-like token)
+function generateToken(adminId) {
+  return Buffer.from(JSON.stringify({ adminId, timestamp: Date.now() })).toString('base64');
+}
+
+// ============= MIDDLEWARE =============
+
+// Middleware to verify admin token
+function verifyToken(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided' });
+  }
+
+  try {
+    const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+    req.adminId = decoded.adminId;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+  }
+}
+
 // ============= STUDENT API ENDPOINTS =============
 
 // GET all students
-app.get('/api/students', (req, res) => {
+app.get('/api/students', verifyToken, (req, res) => {
+  // When calling protected endpoints, the frontend must send Authorization: Bearer <token>
   db.all('SELECT * FROM students ORDER BY id DESC', (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -110,7 +258,7 @@ app.get('/api/students', (req, res) => {
 });
 
 // GET single student by ID
-app.get('/api/students/:id', (req, res) => {
+app.get('/api/students/:id', verifyToken, (req, res) => {
   const { id } = req.params;
   db.get('SELECT * FROM students WHERE id = ?', [id], (err, row) => {
     if (err) {
@@ -124,15 +272,16 @@ app.get('/api/students/:id', (req, res) => {
 });
 
 // POST - Add new student
-app.post('/api/students', (req, res) => {
+app.post('/api/students', verifyToken, (req, res) => {
   const { firstName, lastName, contactNo, course, section } = req.body;
+  const createdBy = req.adminId;
 
   if (!firstName || !lastName || !contactNo || !course || !section) {
     return res.status(400).json({ error: 'All fields are required' });
   }
 
-  const sql = 'INSERT INTO students (firstName, lastName, contactNo, course, section) VALUES (?, ?, ?, ?, ?)';
-  db.run(sql, [firstName, lastName, contactNo, course, section], function(err) {
+  const sql = 'INSERT INTO students (firstName, lastName, contactNo, course, section, createdBy) VALUES (?, ?, ?, ?, ?, ?)';
+  db.run(sql, [firstName, lastName, contactNo, course, section, createdBy], function(err) {
     if (err) {
       res.status(500).json({ error: err.message });
     } else {
@@ -143,6 +292,7 @@ app.post('/api/students', (req, res) => {
         contactNo,
         course,
         section,
+        createdBy,
         message: 'Student added successfully'
       });
     }
@@ -150,7 +300,7 @@ app.post('/api/students', (req, res) => {
 });
 
 // PUT - Update student
-app.put('/api/students/:id', (req, res) => {
+app.put('/api/students/:id', verifyToken, (req, res) => {
   const { id } = req.params;
   const { firstName, lastName, contactNo, course, section } = req.body;
 
@@ -179,7 +329,7 @@ app.put('/api/students/:id', (req, res) => {
 });
 
 // DELETE - Remove student
-app.delete('/api/students/:id', (req, res) => {
+app.delete('/api/students/:id', verifyToken, (req, res) => {
   const { id } = req.params;
 
   db.run('DELETE FROM students WHERE id = ?', [id], function(err) {
@@ -195,9 +345,116 @@ app.delete('/api/students/:id', (req, res) => {
 
 // ===================================================
 
+// ============= USER MANAGEMENT ENDPOINTS =============
+
+// List users (admins and teachers) - only accessible to admins
+app.get('/api/users', verifyToken, (req, res) => {
+  console.log('[DEBUG] GET /api/users called by adminId=', req.adminId);
+  db.get('SELECT isAdmin, isMain FROM admins WHERE id = ?', [req.adminId], (err, requester) => {
+    if (err) {
+      console.error('[ERROR] GET /api/users - requester lookup failed:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+    console.log('[DEBUG] GET /api/users - requester:', requester);
+    if (!requester || Number(requester.isAdmin) !== 1) {
+      console.warn('[WARN] GET /api/users - Forbidden for adminId=', req.adminId);
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    db.all('SELECT id, fullName, email, isAdmin, isMain, createdAt FROM admins ORDER BY id DESC', (err, rows) => {
+      if (err) {
+        console.error('[ERROR] GET /api/users - select failed:', err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      console.log('[DEBUG] GET /api/users - returning rows count=', (rows || []).length);
+      res.json(rows || []);
+    });
+  });
+});
+
+// Delete user (only allowed by main administrator)
+app.delete('/api/users/:id', verifyToken, (req, res) => {
+  const targetId = parseInt(req.params.id, 10);
+
+  db.get('SELECT isAdmin, isMain FROM admins WHERE id = ?', [req.adminId], (err, requester) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!requester || Number(requester.isAdmin) !== 1) return res.status(403).json({ error: 'Forbidden' });
+    if (Number(requester.isMain) !== 1) return res.status(403).json({ error: 'Only the main administrator can delete users' });
+
+    // Prevent deleting the main admin or self
+    db.get('SELECT id, isMain FROM admins WHERE id = ?', [targetId], (err2, target) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+      if (!target) return res.status(404).json({ error: 'User not found' });
+      if (target.isMain === 1) return res.status(403).json({ error: 'Cannot delete the main administrator' });
+      if (target.id === req.adminId) return res.status(400).json({ error: 'Cannot delete yourself' });
+
+      db.run('DELETE FROM admins WHERE id = ?', [targetId], function(delErr) {
+        if (delErr) return res.status(500).json({ error: delErr.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'User not found' });
+        res.json({ success: true, message: 'User deleted successfully' });
+      });
+    });
+  });
+});
+
+// Create user (admin or teacher) - only accessible to admins
+app.post('/api/users', verifyToken, async (req, res) => {
+  const { fullName, email, password, isAdmin } = req.body;
+  if (!fullName || !email || !password) return res.status(400).json({ error: 'Missing fields' });
+  // Log incoming request for debugging
+  console.log('[DEBUG] POST /api/users called by adminId=', req.adminId, 'body=', { fullName, email, isAdmin });
+
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], async (err, requester) => {
+    if (err) {
+      console.error('[ERROR] failed to lookup requester for /api/users:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+
+    console.log('[DEBUG] requester lookup result:', requester);
+
+    // Ensure requester is an administrator (normalize to number for safety)
+    if (!requester || Number(requester.isAdmin) !== 1) {
+      console.warn('[WARN] Forbidden: requester not admin or not found - adminId=', req.adminId);
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    try {
+      const hashed = await bcrypt.hash(password, 10);
+      const sql = 'INSERT INTO admins (fullName, email, password, isAdmin, isMain) VALUES (?, ?, ?, ?, ?)';
+      db.run(sql, [fullName, email, hashed, isAdmin ? 1 : 0, 0], function(insertErr) {
+        if (insertErr) {
+          console.error('[ERROR] failed to insert new user:', insertErr.message);
+          if (insertErr.message.includes('UNIQUE constraint failed')) return res.status(400).json({ error: 'Email already registered' });
+          return res.status(500).json({ error: insertErr.message });
+        }
+
+        console.log('[DEBUG] new user inserted id=', this.lastID, 'email=', email);
+        res.status(201).json({ success: true, id: this.lastID });
+      });
+    } catch (hashErr) {
+      console.error('[ERROR] hashing password failed:', hashErr);
+      res.status(500).json({ error: 'Error hashing password' });
+    }
+  });
+});
+
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Server is running' });
+});
+
+// DEBUG: show DB file path and admins rows (temporary)
+app.get('/api/debug/dbinfo', (req, res) => {
+  try {
+    const dbFile = path.join(__dirname, 'database.db');
+    db.all('SELECT id, fullName, email, isAdmin, isMain, createdAt FROM admins ORDER BY id DESC', (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message, dbFile });
+      res.json({ dbFile, rows: rows || [] });
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Serve login.html for root path
@@ -208,7 +465,15 @@ app.get('/', (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
-  console.log('\nTest credentials:');
-  console.log('Username: teacher1 or teacher2');
-  console.log('Password: teacher123');
+  console.log('\nTest the following:');
+  console.log('1. Register a new Admin account');
+  console.log('2. Login with your email and password');
+  console.log('3. Create and manage student accounts');
+  console.log('\nAPI Endpoints:');
+  console.log('POST   /api/admin/register - Register new admin');
+  console.log('POST   /api/admin/login    - Login with email');
+  console.log('GET    /api/students       - Get all students (requires token)');
+  console.log('POST   /api/students       - Add new student (requires token)');
+  console.log('PUT    /api/students/:id   - Update student (requires token)');
+  console.log('DELETE /api/students/:id   - Delete student (requires token)');
 });

@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Attendance</title>
 <link rel="stylesheet" href="portal.css">
 </head>
@@ -12,6 +14,7 @@
     <li><a href="portal.html">Home</a></li>
     <li><a href="manage.html">Manage Students</a></li>
     <li><a href="attendance.html">Attendance</a></li>
+    <li id="logoutNav"><a href="#" id="logoutLink">Logout</a></li>
   </ul>
 </nav>
 
@@ -19,7 +22,7 @@
 
 <div class="card">
 <h2>Select Section</h2>
-<select id="attendanceSection" onchange="loadAttendance()"></select>
+<select id="attendanceSection" aria-label="Select Section" onchange="loadAttendance()"></select>
 </div>
 
 <div class="card">
