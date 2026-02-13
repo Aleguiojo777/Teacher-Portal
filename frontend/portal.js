@@ -18,6 +18,36 @@ window.API_BASE = window.API_BASE || (function(){
 const API_BASE = window.API_BASE;
 
 /* ===========================
+   SIDEBAR TOGGLE
+=========================== */
+document.addEventListener('DOMContentLoaded', function() {
+  const sidebarToggle = document.getElementById('sidebarToggle');
+  const sidebar = document.getElementById('sidebar');
+  
+  if(sidebarToggle && sidebar) {
+    sidebarToggle.addEventListener('click', function() {
+      sidebar.classList.toggle('show');
+    });
+    
+    // Close sidebar when clicking a link
+    sidebar.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', function() {
+        if(window.innerWidth <= 600) {
+          sidebar.classList.remove('show');
+        }
+      });
+    });
+    
+    // Close sidebar when clicking outside
+    document.addEventListener('click', function(e) {
+      if(!sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
+        sidebar.classList.remove('show');
+      }
+    });
+  }
+});
+
+/* ===========================
    LOAD STUDENTS FROM API
 =========================== */
 

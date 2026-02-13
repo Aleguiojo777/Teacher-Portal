@@ -3,13 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Student Portal</title>
+<title>Teacher Portal</title>
 <link rel="stylesheet" href="portal.css">
 </head>
 <body>
 
-<nav class="navbar">
-  <div class="logo">Student Portal</div>
+<button class="sidebar-toggle" id="sidebarToggle">☰ Menu</button>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">Teacher Portal</div>
   <ul>
     <li><a href="#" data-section="home" class="nav-link">Home</a></li>
     <li><a href="#" data-section="manage" class="nav-link">Manage Students</a></li>
@@ -19,7 +21,8 @@
   </ul>
 </nav>
 
-<div class="container">
+<div class="main-content">
+  <div class="container">
   <section id="section-home" class="section">
     <div class="card welcome">
       <h2 id="welcomeTitle">Welcome</h2>
@@ -89,6 +92,7 @@
 
   <!-- User Management is a separate page: user-management.html -->
 
+</div>
 </div>
 
 <script src="portal.js"></script>
