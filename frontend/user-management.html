@@ -21,6 +21,42 @@
 
 <div class="container">
 
+<!-- Edit User Modal -->
+<div id="editUserModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Edit User</h2>
+      <span class="close" id="closeEditModal">&times;</span>
+    </div>
+    <div id="editMessage" class="message"></div>
+    <form id="userEditForm">
+      <div class="modal-form-group">
+        <label for="editUserFullName">Full Name:</label>
+        <input type="text" id="editUserFullName" placeholder="Full name" required>
+      </div>
+      <div class="modal-form-group">
+        <label for="editUserEmail">Email:</label>
+        <input type="email" id="editUserEmail" placeholder="Email" required>
+      </div>
+      <div class="modal-form-group">
+        <label for="editUserPassword">Password:</label>
+        <input type="password" id="editUserPassword" placeholder="Leave blank to keep current">
+      </div>
+      <div class="modal-form-group">
+        <label for="editUserRole">Role:</label>
+        <select id="editUserRole">
+          <option value="teacher">Teacher</option>
+          <option value="admin">Administrator</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="submit" class="modal-btn save-btn">Save Changes</button>
+        <button type="button" class="modal-btn cancel-btn" id="cancelEditBtn">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="card">
   <h2>User Management</h2>
   <p>Admins can create new administrators or teachers here.</p>

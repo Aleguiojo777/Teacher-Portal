@@ -379,6 +379,92 @@ app.get('/api/users', verifyToken, (req, res) => {
   });
 });
 
+// Update user (only allowed by main administrator)
+app.put('/api/users/:id', verifyToken, async (req, res) => {
+  const targetId = parseInt(req.params.id, 10);
+  const { fullName, email, password, isAdmin } = req.body;
+
+  console.log('[DEBUG PUT] Update user called - targetId:', targetId, 'adminId:', req.adminId, 'body:', { fullName, email, isAdmin });
+
+  db.get('SELECT isAdmin, isMain FROM admins WHERE id = ?', [req.adminId], async (err, requester) => {
+    if (err) {
+      console.error('[ERROR PUT] Requester lookup failed:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+    console.log('[DEBUG PUT] Requester:', requester);
+    
+    if (!requester || Number(requester.isAdmin) !== 1) {
+      console.warn('[WARN PUT] Requester is not admin');
+      return res.status(403).json({ error: 'Forbidden - you must be an administrator' });
+    }
+
+    // Check if target user exists and prevent editing main admin
+    db.get('SELECT id, isMain FROM admins WHERE id = ?', [targetId], async (err2, target) => {
+      if (err2) {
+        console.error('[ERROR PUT] Target lookup failed:', err2.message);
+        return res.status(500).json({ error: err2.message });
+      }
+      console.log('[DEBUG PUT] Target user:', target);
+      
+      if (!target) {
+        console.warn('[WARN PUT] Target user not found');
+        return res.status(404).json({ error: 'User not found' });
+      }
+      if (Number(target.isMain) === 1) {
+        console.warn('[WARN PUT] Cannot edit main administrator');
+        return res.status(403).json({ error: 'Cannot edit the main administrator' });
+      }
+
+      try {
+        let updateFields = [];
+        let updateValues = [];
+
+        if (fullName) {
+          updateFields.push('fullName = ?');
+          updateValues.push(fullName);
+        }
+        if (email) {
+          updateFields.push('email = ?');
+          updateValues.push(email);
+        }
+        if (password) {
+          const hashed = await bcrypt.hash(password, 10);
+          updateFields.push('password = ?');
+          updateValues.push(hashed);
+        }
+        if (isAdmin !== undefined) {
+          updateFields.push('isAdmin = ?');
+          updateValues.push(isAdmin ? 1 : 0);
+        }
+
+        if (updateFields.length === 0) {
+          console.warn('[WARN PUT] No fields to update');
+          return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        updateValues.push(targetId);
+        const sql = `UPDATE admins SET ${updateFields.join(', ')} WHERE id = ?`;
+        console.log('[DEBUG PUT] SQL:', sql, 'values:', updateValues);
+
+        db.run(sql, updateValues, function(updateErr) {
+          if (updateErr) {
+            console.error('[ERROR PUT] Update failed:', updateErr.message);
+            if (updateErr.message.includes('UNIQUE constraint failed')) {
+              return res.status(400).json({ error: 'Email already in use' });
+            }
+            return res.status(500).json({ error: updateErr.message });
+          }
+          console.log('[DEBUG PUT] User updated successfully - changes:', this.changes);
+          res.json({ success: true, message: 'User updated successfully' });
+        });
+      } catch (hashErr) {
+        console.error('[ERROR] hashing password failed:', hashErr);
+        res.status(500).json({ error: 'Error processing update' });
+      }
+    });
+  });
+});
+
 // Delete user (only allowed by main administrator)
 app.delete('/api/users/:id', verifyToken, (req, res) => {
   const targetId = parseInt(req.params.id, 10);

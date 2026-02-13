@@ -43,34 +43,18 @@ async function loadUsers(){
       const role = Number(u.isAdmin) === 1 ? 'Administrator' : 'Teacher';
       let actions = '';
       if(storedAdmin && Number(storedAdmin.isMain) === 1 && Number(u.isMain) !== 1){
-        actions = `<button class="delete-user" data-id="${u.id}">Delete</button>`;
+        actions = `<button class="edit-user" data-id="${u.id}" data-user='${JSON.stringify(u)}'>Edit</button>
+                  <button class="delete-user" data-id="${u.id}">Delete</button>`;
       }
       const row = document.createElement('tr');
       row.innerHTML = `<td>${i+1}</td><td>${escapeHtml(u.fullName)}</td><td>${escapeHtml(u.email)}</td><td>${role}</td><td>${u.createdAt}</td><td>${actions}</td>`;
       body.appendChild(row);
     });
 
-    // Use event delegation for delete buttons
+    // Use event delegation for edit and delete buttons
     const usersBody = document.getElementById('usersBody');
-    usersBody.addEventListener('click', async (e) => {
-      if(!e.target.classList.contains('delete-user')) return;
-      const id = e.target.dataset.id;
-      if(!confirm('Delete this user?')) return;
-      try{
-        const token = localStorage.getItem('token');
-        const resp = await fetch(`${UM_API_BASE}/users/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
-        const d = await resp.json().catch(()=>({}));
-        if(resp.ok){
-          setMessage('User deleted', 'success');
-          loadUsers();
-        } else {
-          setMessage(d.error || 'Failed to delete user', 'error');
-        }
-      } catch(err){
-        console.error(err);
-        setMessage('Error deleting user', 'error');
-      }
-    });
+    usersBody.removeEventListener('click', handleUserAction);
+    usersBody.addEventListener('click', handleUserAction);
 
     setMessage('Users loaded', '');
   } catch(err){
@@ -79,11 +63,168 @@ async function loadUsers(){
   }
 }
 
+// Handle user action (edit or delete)
+async function handleUserAction(e) {
+  if(e.target.classList.contains('edit-user')) {
+    const userData = JSON.parse(e.target.dataset.user);
+    openEditModal(userData);
+  } else if(e.target.classList.contains('delete-user')) {
+    const id = e.target.dataset.id;
+    if(!confirm('Delete this user?')) return;
+    try{
+      const token = localStorage.getItem('token');
+      const resp = await fetch(`${UM_API_BASE}/users/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await resp.json().catch(()=>({}));
+      if(resp.ok){
+        setMessage('User deleted', 'success');
+        loadUsers();
+      } else {
+        setMessage(d.error || 'Failed to delete user', 'error');
+      }
+    } catch(err){
+      console.error(err);
+      setMessage('Error deleting user', 'error');
+    }
+  }
+}
+
 // Basic XSS escape for names/emails
 function escapeHtml(s){
   if(!s) return '';
   return String(s).replace(/[&<>"']/g, (c)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+// Modal functions
+let currentEditingUserId = null;
+
+function openEditModal(userData) {
+  currentEditingUserId = userData.id;
+  document.getElementById('editUserFullName').value = userData.fullName;
+  document.getElementById('editUserEmail').value = userData.email;
+  document.getElementById('editUserPassword').value = '';
+  document.getElementById('editUserRole').value = Number(userData.isAdmin) === 1 ? 'admin' : 'teacher';
+  document.getElementById('editMessage').textContent = '';
+  document.getElementById('editUserModal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('editUserModal').style.display = 'none';
+  currentEditingUserId = null;
+  document.getElementById('userEditForm').reset();
+}
+
+function setEditMessage(text, type) {
+  const el = document.getElementById('editMessage');
+  if(!el) return;
+  el.textContent = text;
+  el.className = 'message ' + (type || '');
+}
+
+// Handle edit form submission
+function handleEditFormSubmit(e) {
+  e.preventDefault();
+  
+  if(!currentEditingUserId) {
+    setEditMessage('Error: No user selected', 'error');
+    return;
+  }
+
+  const fullName = document.getElementById('editUserFullName').value.trim();
+  const email = document.getElementById('editUserEmail').value.trim();
+  const password = document.getElementById('editUserPassword').value;
+  const role = document.getElementById('editUserRole').value;
+  const isAdmin = role === 'admin' ? 1 : 0;
+  const token = localStorage.getItem('token');
+
+  console.log('[DEBUG] Edit form submitted - userId:', currentEditingUserId, 'fullName:', fullName, 'email:', email);
+
+  if(!token) {
+    setEditMessage('Unauthorized: Please login', 'error');
+    return;
+  }
+  if(!fullName || !email) {
+    setEditMessage('Full name and email are required', 'error');
+    return;
+  }
+
+  submitEditForm(fullName, email, password, isAdmin, token, currentEditingUserId);
+}
+
+async function submitEditForm(fullName, email, password, isAdmin, token, userId) {
+  try {
+    setEditMessage('Updating user...', 'loading');
+    
+    const body = { fullName, email, isAdmin };
+    if(password && password.length > 0) {
+      body.password = password;
+    }
+
+    console.log('[DEBUG] Sending PUT request to:', `${UM_API_BASE}/users/${userId}`, 'body:', body);
+
+    const res = await fetch(`${UM_API_BASE}/users/${userId}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json', 
+        'Authorization': 'Bearer ' + token 
+      },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json().catch(() => ({ error: 'Failed to parse response' }));
+    
+    console.log('[DEBUG] Response status:', res.status, 'data:', data);
+
+    if(res.ok) {
+      setEditMessage('User updated successfully', 'success');
+      setTimeout(() => {
+        closeEditModal();
+        loadUsers();
+      }, 500);
+    } else {
+      setEditMessage(data.error || data.message || 'Failed to update user', 'error');
+    }
+  } catch(err) {
+    console.error('[ERROR] Edit user error:', err);
+    setEditMessage('Error: ' + err.message, 'error');
+  }
+}
+
+// Setup form event listener after DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  const editForm = document.getElementById('userEditForm');
+  if(editForm) {
+    editForm.removeEventListener('submit', handleEditFormSubmit);
+    editForm.addEventListener('submit', handleEditFormSubmit);
+  } else {
+    console.warn('[WARN] userEditForm not found in DOM');
+  }
+
+  const closeModal = document.getElementById('closeEditModal');
+  if(closeModal) {
+    closeModal.removeEventListener('click', closeEditModal);
+    closeModal.addEventListener('click', closeEditModal);
+  }
+
+  const cancelBtn = document.getElementById('cancelEditBtn');
+  if(cancelBtn) {
+    cancelBtn.removeEventListener('click', closeEditModal);
+    cancelBtn.addEventListener('click', closeEditModal);
+  }
+});
+
+// Close modal when clicking outside of it
+document.addEventListener('DOMContentLoaded', function() {
+  window.removeEventListener('click', handleOutsideClick);
+  window.addEventListener('click', handleOutsideClick);
+});
+
+function handleOutsideClick(e) {
+  const modal = document.getElementById('editUserModal');
+  if(e.target === modal) {
+    closeEditModal();
+  }
+}
+
 
 // Handle create user
 document.getElementById('userCreateForm').addEventListener('submit', async (e)=>{
