@@ -81,22 +81,88 @@
   .records-table table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .records-table thead tr {
+    background: #2563eb;
+    color: white;
   }
 
   .records-table th {
-    background: #2563eb;
-    color: white;
-    padding: 12px;
+    padding: 14px 12px;
     text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+    border-bottom: 2px solid #1d4ed8;
+  }
+
+  .records-table th:first-child {
+    width: 5%;
+    text-align: center;
+  }
+
+  .records-table th:nth-child(2) {
+    width: 30%;
+  }
+
+  .records-table th:nth-child(3) {
+    width: 25%;
+  }
+
+  .records-table th:nth-child(4) {
+    width: 15%;
+  }
+
+  .records-table th:nth-child(5) {
+    width: 25%;
+    text-align: center;
   }
 
   .records-table td {
     padding: 12px;
     border-bottom: 1px solid #e5e7eb;
+    vertical-align: middle;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .records-table td:first-child {
+    width: 5%;
+    text-align: center;
+    font-weight: 500;
+  }
+
+  .records-table td:nth-child(2) {
+    width: 30%;
+    text-align: left;
+  }
+
+  .records-table td:nth-child(3) {
+    width: 25%;
+    text-align: center;
+  }
+
+  .records-table td:nth-child(4) {
+    width: 15%;
+    text-align: center;
+  }
+
+  .records-table td:nth-child(5) {
+    width: 25%;
+    text-align: center;
+  }
+
+  .records-table td:last-child {
+    text-align: center;
   }
 
   .records-table tr:nth-child(even) {
     background: #f9fafb;
+  }
+
+  .records-table tr:hover {
+    background: #f3f4f6;
   }
 
   .status-badge {
@@ -120,6 +186,22 @@
   .status-badge.late {
     background: #fce7f3;
     color: #be185d;
+  }
+
+  .col-5 {
+    width: 5%;
+  }
+
+  .col-30 {
+    width: 30%;
+  }
+
+  .col-25 {
+    width: 25%;
+  }
+
+  .col-15 {
+    width: 15%;
   }
 </style>
 </head>
@@ -185,6 +267,13 @@
   <h2>Attendance Summary</h2>
   <div class="records-table">
     <table>
+      <colgroup>
+        <col class="col-5">
+        <col class="col-30">
+        <col class="col-25">
+        <col class="col-15">
+        <col class="col-25">
+      </colgroup>
       <thead>
         <tr>
           <th>#</th>
