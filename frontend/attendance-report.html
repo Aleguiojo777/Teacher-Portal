@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance Report</title>
+<link rel="stylesheet" href="portal.css">
+<style>
+  .report-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+
+  .stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  }
+
+  .stat-card.present {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  }
+
+  .stat-card.absent {
+    background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+  }
+
+  .stat-card.late {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  }
+
+  .stat-card h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .stat-card .number {
+    font-size: 48px;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+
+  .stat-card .percentage {
+    font-size: 12px;
+    opacity: 0.85;
+  }
+
+  .section-select {
+    margin-bottom: 20px;
+  }
+
+  .section-select label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #374151;
+  }
+
+  .section-select select,
+  .section-select input[type="date"] {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 16px;
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .records-table {
+    overflow-x: auto;
+  }
+
+  .records-table table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .records-table th {
+    background: #2563eb;
+    color: white;
+    padding: 12px;
+    text-align: left;
+  }
+
+  .records-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .records-table tr:nth-child(even) {
+    background: #f9fafb;
+  }
+
+  .status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+  }
+
+  .status-badge.present {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .status-badge.absent {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .status-badge.late {
+    background: #fce7f3;
+    color: #be185d;
+  }
+</style>
+</head>
+<body>
+
+<button class="sidebar-toggle" id="sidebarToggle">☰ Menu</button>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <img src="resources/techvision.png" alt="Teacher Portal Logo">
+    <span>Teacher Portal</span>
+  </div>
+  <ul>
+    <li><a href="portal.html">Home</a></li>
+    <li><a href="manage.html">Manage Students</a></li>
+    <li><a href="attendance.html">Attendance</a></li>
+    <li><a href="attendance-report.html">Attendance Report</a></li>
+    <li id="logoutNav"><a href="#" id="logoutLink">Logout</a></li>
+  </ul>
+</nav>
+
+<div class="main-content">
+  <div class="container">
+
+<div class="card">
+  <h2>Attendance Report</h2>
+  
+  <div class="section-select">
+    <label for="reportDate">Select Date:</label>
+    <input type="date" id="reportDate" onchange="generateReport()">
+  </div>
+  
+  <div class="section-select">
+    <label for="reportSection">Select Section:</label>
+    <select id="reportSection" onchange="generateReport()"></select>
+  </div>
+
+  <div class="report-grid">
+    <div class="stat-card present">
+      <h3>Present</h3>
+      <div class="number" id="presentCount">0</div>
+      <div class="percentage" id="presentPercentage">0%</div>
+    </div>
+    <div class="stat-card absent">
+      <h3>Absent</h3>
+      <div class="number" id="absentCount">0</div>
+      <div class="percentage" id="absentPercentage">0%</div>
+    </div>
+    <div class="stat-card late">
+      <h3>Late</h3>
+      <div class="number" id="lateCount">0</div>
+      <div class="percentage" id="latePercentage">0%</div>
+    </div>
+    <div class="stat-card">
+      <h3>Total Students</h3>
+      <div class="number" id="totalCount">0</div>
+      <div class="percentage" id="totalPercentage">100%</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Attendance Summary</h2>
+  <div class="records-table">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Student Name</th>
+          <th>Course</th>
+          <th>Section</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="summaryList"></tbody>
+    </table>
+  </div>
+</div>
+
+</div>
+</div>
+</div>
+
+<script src="portal.js"></script>
+<script>
+  let allStudents = [];
+  let allAttendance = [];
+
+  window.API_BASE = window.API_BASE || (function(){
+    try{
+      const origin = window.location.origin;
+      const host = window.location.hostname;
+      if(host === 'localhost' || host === '127.0.0.1') return 'http://localhost:3000/api';
+      return origin + '/api';
+    }catch(e){
+      return 'http://localhost:3000/api';
+    }
+  })();
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebar = document.getElementById('sidebar');
+    
+    if(sidebarToggle && sidebar) {
+      sidebarToggle.addEventListener('click', function() {
+        sidebar.classList.toggle('show');
+      });
+      
+      sidebar.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', function() {
+          if(window.innerWidth <= 600) {
+            sidebar.classList.remove('show');
+          }
+        });
+      });
+      
+      document.addEventListener('click', function(e) {
+        if(!sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
+          sidebar.classList.remove('show');
+        }
+      });
+    }
+
+    // Set date picker to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('reportDate').value = today;
+
+    loadReportData();
+  });
+
+  async function loadReportData() {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Load all students
+      const studentsRes = await fetch(window.API_BASE + '/students', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      
+      if(studentsRes.ok) {
+        allStudents = await studentsRes.json();
+        console.log('[DEBUG] Students loaded:', allStudents.length);
+      }
+      
+      loadReportSections();
+      generateReport();
+    } catch(error) {
+      console.error('[ERROR] Failed to load report data:', error);
+    }
+  }
+
+  function loadReportSections() {
+    const select = document.getElementById("reportSection");
+    if (!allStudents || allStudents.length === 0) return;
+    
+    const sections = [...new Set(allStudents.map(s => s.section))];
+    select.innerHTML = '<option value="">-- All Sections --</option>';
+    
+    sections.forEach(sec => {
+      const opt = document.createElement('option');
+      opt.value = sec;
+      opt.textContent = sec;
+      select.appendChild(opt);
+    });
+  }
+
+  async function generateReport() {
+    try {
+      const token = localStorage.getItem('token');
+      const dateInput = document.getElementById("reportDate").value;
+      const selectedSection = document.getElementById("reportSection").value;
+      
+      if(!dateInput) return;
+      
+      console.log('[DEBUG] Generating report for date:', dateInput, 'section:', selectedSection);
+      
+      // Load attendance for selected date
+      const attendanceRes = await fetch(window.API_BASE + '/attendance/' + dateInput, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      
+      if(!attendanceRes.ok) {
+        console.warn('[WARN] Failed to load attendance');
+        allAttendance = [];
+      } else {
+        allAttendance = await attendanceRes.json();
+        console.log('[DEBUG] Attendance records loaded:', allAttendance.length);
+      }
+      
+      // Filter by section if selected
+      let reportStudents = allStudents;
+      if(selectedSection) {
+        reportStudents = allStudents.filter(s => s.section === selectedSection);
+      }
+      
+      // Calculate statistics
+      let presentCount = 0, absentCount = 0, lateCount = 0;
+      
+      reportStudents.forEach((student, idx) => {
+        const attendance = allAttendance.find(a => a.studentId === student.id);
+        const status = attendance ? attendance.status : 'Absent';
+        
+        if(status === "Present") presentCount++;
+        else if(status === "Late") lateCount++;
+        else absentCount++;
+      });
+      
+      const total = reportStudents.length;
+      const presentPct = total > 0 ? Math.round((presentCount / total) * 100) : 0;
+      const absentPct = total > 0 ? Math.round((absentCount / total) * 100) : 0;
+      const latePct = total > 0 ? Math.round((lateCount / total) * 100) : 0;
+      
+      // Update UI
+      document.getElementById("presentCount").textContent = presentCount;
+      document.getElementById("presentPercentage").textContent = presentPct + "%";
+      document.getElementById("absentCount").textContent = absentCount;
+      document.getElementById("absentPercentage").textContent = absentPct + "%";
+      document.getElementById("lateCount").textContent = lateCount;
+      document.getElementById("latePercentage").textContent = latePct + "%";
+      document.getElementById("totalCount").textContent = total;
+      
+      // Display attendance summary table
+      const summaryList = document.getElementById("summaryList");
+      summaryList.innerHTML = '';
+      
+      reportStudents.forEach((student, idx) => {
+        const attendance = allAttendance.find(a => a.studentId === student.id);
+        const status = attendance ? attendance.status : 'Absent';
+        
+        const row = document.createElement('tr');
+        let statusBadgeClass = 'status-badge ';
+        if(status === 'Present') statusBadgeClass += 'present';
+        else if(status === 'Late') statusBadgeClass += 'late';
+        else statusBadgeClass += 'absent';
+        
+        row.innerHTML = `
+          <td>${idx + 1}</td>
+          <td>${student.firstName} ${student.lastName}</td>
+          <td>${student.course}</td>
+          <td>${student.section}</td>
+          <td><span class="${statusBadgeClass}">${status}</span></td>
+        `;
+        summaryList.appendChild(row);
+      });
+      
+      console.log('[DEBUG] Report generated - Present:', presentCount, 'Late:', lateCount, 'Absent:', absentCount);
+    } catch(error) {
+      console.error('[ERROR] Failed to generate report:', error);
+    }
+  }
+</script>
+
+</body>
+</html>

@@ -83,6 +83,26 @@ function initializeDatabase() {
       console.log('Students table ready');
     }
   });
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS attendance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      studentId INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Absent',
+      attendanceDate DATE NOT NULL,
+      recordedBy INTEGER,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(studentId) REFERENCES students(id),
+      FOREIGN KEY(recordedBy) REFERENCES admins(id),
+      UNIQUE(studentId, attendanceDate)
+    )
+  `, (err) => {
+    if (err) {
+      console.error('Error creating attendance table:', err.message);
+    } else {
+      console.log('Attendance table ready');
+    }
+  });
 }
   // Insert default admin account if it doesn't exist
   const defaultAdminEmail = 'aleguiojoaljey@gmail.com';
@@ -347,6 +367,55 @@ app.delete('/api/students/:id', verifyToken, (req, res) => {
     } else {
       res.json({ message: 'Student deleted successfully' });
     }
+  });
+});
+
+// ===================================================
+
+// ============= ATTENDANCE ENDPOINTS =============
+
+// Save attendance status for a student
+app.post('/api/attendance', verifyToken, (req, res) => {
+  const { studentId, status, attendanceDate } = req.body;
+  const recordedBy = req.adminId;
+
+  if (!studentId || !status) {
+    return res.status(400).json({ error: 'studentId and status are required' });
+  }
+
+  const date = attendanceDate || new Date().toISOString().split('T')[0];
+
+  const sql = `
+    INSERT OR REPLACE INTO attendance (studentId, status, attendanceDate, recordedBy)
+    VALUES (?, ?, ?, ?)
+  `;
+
+  db.run(sql, [studentId, status, date, recordedBy], function(err) {
+    if (err) {
+      console.error('[ERROR] Failed to save attendance:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+    console.log('[DEBUG] Attendance saved - studentId:', studentId, 'status:', status);
+    res.json({ success: true, message: 'Attendance recorded' });
+  });
+});
+
+// Get attendance for a specific date
+app.get('/api/attendance/:date', verifyToken, (req, res) => {
+  const date = req.params.date;
+
+  db.all(`
+    SELECT a.id, a.studentId, a.status, a.attendanceDate, s.firstName, s.lastName, s.course, s.section
+    FROM attendance a
+    LEFT JOIN students s ON a.studentId = s.id
+    WHERE a.attendanceDate = ?
+    ORDER BY s.section, s.firstName
+  `, [date], (err, rows) => {
+    if (err) {
+      console.error('[ERROR] Failed to get attendance:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows || []);
   });
 });
 

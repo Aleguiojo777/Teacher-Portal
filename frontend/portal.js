@@ -59,12 +59,47 @@ async function loadStudents(){
         });
         if(response.ok){
             students = await response.json();
+            // Initialize status property for all students (default to "Absent")
+            students.forEach(s => {
+                if(!s.status) {
+                    s.status = "Absent";
+                }
+            });
+            
+            // Load attendance for today
+            await loadTodayAttendance();
             renderStudents();
             loadSections();
         }
     } catch(error){
         console.error('Error loading students:', error);
         alert('Error loading students');
+    }
+}
+
+async function loadTodayAttendance() {
+    try {
+        const token = localStorage.getItem('token');
+        const today = new Date().toISOString().split('T')[0];
+        const response = await fetch(`${API_BASE}/attendance/${today}`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if(response.ok) {
+            const attendanceRecords = await response.json();
+            console.log('[DEBUG] Attendance records loaded:', attendanceRecords);
+            
+            // Update student statuses from attendance records
+            attendanceRecords.forEach(record => {
+                const student = students.find(s => s.id === record.studentId);
+                if(student) {
+                    student.status = record.status;
+                    console.log('[DEBUG] Updated student', student.id, 'to status:', record.status);
+                }
+            });
+        }
+    } catch(error) {
+        console.error('[ERROR] Failed to load attendance:', error);
     }
 }
 
@@ -238,6 +273,8 @@ function loadAttendance(){
     const secSelect = document.getElementById("attendanceSection");
     const sec = secSelect.value;
     const list = document.getElementById("attendanceList");
+    
+    console.log('[DEBUG] loadAttendance called - section:', sec);
 
     if(!sec){
         list.innerHTML = "";
@@ -245,25 +282,81 @@ function loadAttendance(){
     }
 
     list.innerHTML = "";
+    let count = 0;
 
     students.forEach((s, index)=>{
         if(s.section === sec){
+            count++;
             const fullName = `${s.firstName} ${s.lastName}`;
+            const statusClass = s.status === "Present" ? "present" : (s.status === "Late" ? "late" : "absent");
+            console.log('[DEBUG] Student:', s.firstName, 'Status:', s.status, 'Class:', statusClass);
             list.innerHTML += `
             <tr>
-                <td>${index+1}</td>
+                <td>${count}</td>
                 <td>${fullName}</td>
                 <td>${s.course}</td>
-                <td class="${s.status === "Present" ? "present" : "absent"}">
+                <td class="${statusClass}">
                     ${s.status || "Absent"}
                 </td>
                 <td>
-                    <button onclick="toggleStatus(${s.id})">Toggle</button>
+                    <button class="btn-present" onclick="setStatus(${s.id}, 'Present')">Present</button>
+                    <button class="btn-late" onclick="setStatus(${s.id}, 'Late')">Late</button>
+                    <button class="btn-absent" onclick="setStatus(${s.id}, 'Absent')">Absent</button>
                 </td>
             </tr>
             `;
         }
     });
+    console.log('[DEBUG] loadAttendance complete - students shown:', count);
+}
+
+function setStatus(id, status){
+    console.log('[DEBUG] setStatus called - id:', id, 'status:', status);
+    const student = students.find(s => s.id === id);
+    console.log('[DEBUG] student found:', student);
+    if(!student) {
+        console.warn('[WARN] Student not found with id:', id);
+        return;
+    }
+    
+    student.status = status;
+    console.log('[DEBUG] Status updated to:', student.status);
+    
+    // Save to backend
+    saveAttendanceToBackend(id, status);
+    
+    loadAttendance();
+}
+
+async function saveAttendanceToBackend(studentId, status) {
+    try {
+        const token = localStorage.getItem('token');
+        const today = new Date().toISOString().split('T')[0];
+        
+        console.log('[DEBUG] Saving attendance - studentId:', studentId, 'status:', status, 'date:', today);
+        
+        const response = await fetch(`${API_BASE}/attendance`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({
+                studentId: studentId,
+                status: status,
+                attendanceDate: today
+            })
+        });
+        
+        const data = await response.json();
+        if(response.ok) {
+            console.log('[DEBUG] Attendance saved successfully:', data);
+        } else {
+            console.error('[ERROR] Failed to save attendance:', data.error);
+        }
+    } catch(error) {
+        console.error('[ERROR] Error saving attendance:', error);
+    }
 }
 
 function toggleStatus(id){

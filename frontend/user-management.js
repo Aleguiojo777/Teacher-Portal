@@ -132,11 +132,11 @@ function openEditModal(userData) {
   document.getElementById('editUserPassword').value = '';
   document.getElementById('editUserRole').value = Number(userData.isAdmin) === 1 ? 'admin' : 'teacher';
   document.getElementById('editMessage').textContent = '';
-  document.getElementById('editUserModal').style.display = 'flex';
+  document.getElementById('editUserModal').classList.remove('modal-hidden');
 }
 
 function closeEditModal() {
-  document.getElementById('editUserModal').style.display = 'none';
+  document.getElementById('editUserModal').classList.add('modal-hidden');
   currentEditingUserId = null;
   document.getElementById('userEditForm').reset();
 }

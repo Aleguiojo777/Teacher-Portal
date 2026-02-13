@@ -195,6 +195,7 @@ background:#f1f5f9;
 
 .present{color:green;font-weight:bold;}
 .absent{color:red;font-weight:bold;}
+.late{color:#f59e0b;font-weight:bold;}
 
 /* Feedback messages used by forms */
 .message { margin-bottom: 12px; padding:10px; border-radius:8px }
@@ -214,6 +215,14 @@ background:#f1f5f9;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.modal-hidden {
+  display: none !important;
+}
+
+.modal.show {
+  display: flex !important;
 }
 
 .modal-content {
@@ -339,6 +348,42 @@ background:#f1f5f9;
 }
 
 .delete-user:hover {
+  background: #dc2626;
+}
+
+/* Attendance buttons */
+.btn-present, .btn-late, .btn-absent {
+  padding: 6px 10px;
+  margin: 2px;
+  font-size: 11px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  color: white;
+}
+
+.btn-present {
+  background: #10b981;
+}
+
+.btn-present:hover {
+  background: #059669;
+}
+
+.btn-late {
+  background: #f59e0b;
+}
+
+.btn-late:hover {
+  background: #d97706;
+}
+
+.btn-absent {
+  background: #ef4444;
+}
+
+.btn-absent:hover {
   background: #dc2626;
 }
 
