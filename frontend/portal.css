@@ -35,6 +35,26 @@ min-height:100vh;
   margin-bottom: 30px;
   padding-bottom: 15px;
   border-bottom: 2px solid rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebar-logo img {
+  height: 70px;
+  width: 70px;
+  object-fit: cover;
+  background: rgba(255,255,255,0.1);
+  padding: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sidebar-logo span {
+  font-size: 20px;
+  font-weight: bold;
+  color: white;
+  letter-spacing: 0.5px;
 }
 
 .sidebar ul {
