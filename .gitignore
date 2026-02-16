@@ -1,0 +1,56 @@
+# Dependencies and Environment Files
+.env
+.env.local
+.env.*.local
+node_modules/
+package-lock.json
+
+# Database and Data
+backend/database/
+database/
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs and Debugging
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build and Distribution
+dist/
+build/
+/coverage
+
+# Environment Presets (keep .example files)
+# Staging and production configs should be managed separately
+.env.staging
+.env.production
+
+# Temporary Files
+*.tmp
+.cache/
+temp/
+tmp/
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.swp
+
+# Keep config examples and documentation
+!.env.example
+!backend/.env.example
+!config/
+!config/ENVIRONMENT_PRESETS.md

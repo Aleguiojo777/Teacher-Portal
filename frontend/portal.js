@@ -543,8 +543,11 @@ document.addEventListener('DOMContentLoaded', function() {
   window.removeEventListener('click', handleEditStudentOutsideClick);
   window.addEventListener('click', handleEditStudentOutsideClick);
 
-  // Default to home
-  showSection('home');
+  // Only use showSection if on multi-section page (portal.html)
+  // Don't call showSection on standalone pages like manage.html
+  if(document.getElementById('section-home')) {
+    showSection('home');
+  }
 });
 
 function handleEditStudentOutsideClick(e) {
