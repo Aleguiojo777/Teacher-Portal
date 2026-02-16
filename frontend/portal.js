@@ -183,58 +183,132 @@ function renderStudents(){
     list.innerHTML = "";
 
     students.forEach((s, i)=>{
-        list.innerHTML += `
-        <tr>
-            <td>${i+1}</td>
-            <td>${s.firstName}</td>
-            <td>${s.lastName}</td>
-            <td>${s.contactNo}</td>
-            <td>${s.course}</td>
-            <td>${s.section}</td>
-            <td>
-                <button onclick="editStudent(${s.id})">Edit</button>
-                <button onclick="deleteStudent(${s.id})">Delete</button>
-            </td>
-        </tr>
-        `;
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${i+1}</td><td>${s.firstName}</td><td>${s.lastName}</td><td>${s.contactNo}</td><td>${s.course}</td><td>${s.section}</td><td><button class="edit-student" data-id="${s.id}" data-student='${JSON.stringify(s)}'>Edit</button>
+                  <button class="delete-student" data-id="${s.id}">Delete</button></td></tr>`;
+        list.appendChild(row);
     });
+
+    // Use event delegation for edit and delete buttons
+    const studentList = document.getElementById('studentList');
+    studentList.removeEventListener('click', handleStudentAction);
+    studentList.addEventListener('click', handleStudentAction);
+}
+
+// Handle student action (edit or delete)
+async function handleStudentAction(e) {
+  if(e.target.classList.contains('edit-student')) {
+    const studentData = JSON.parse(e.target.dataset.student);
+    openEditStudentModal(studentData);
+  } else if(e.target.classList.contains('delete-student')) {
+    const id = e.target.dataset.id;
+    if(!confirm('Delete this student?')) return;
+    try{
+      const token = localStorage.getItem('token');
+      const resp = await fetch(`${API_BASE}/students/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await resp.json().catch(()=>({}));
+      if(resp.ok){
+        alert('Student deleted');
+        loadStudents();
+      } else {
+        alert(d.error || 'Failed to delete student');
+      }
+    } catch(err){
+      console.error(err);
+      alert('Error deleting student');
+    }
+  }
+}
+
+let currentEditingStudentId = null;
+
+function openEditStudentModal(studentData) {
+  currentEditingStudentId = studentData.id;
+  document.getElementById('editStudentFirstName').value = studentData.firstName;
+  document.getElementById('editStudentLastName').value = studentData.lastName;
+  document.getElementById('editStudentContactNo').value = studentData.contactNo;
+  document.getElementById('editStudentCourse').value = studentData.course;
+  document.getElementById('editStudentSection').value = studentData.section;
+  document.getElementById('editStudentMessage').textContent = '';
+  document.getElementById('editStudentModal').classList.remove('modal-hidden');
+}
+
+function closeEditStudentModal() {
+  document.getElementById('editStudentModal').classList.add('modal-hidden');
+  currentEditingStudentId = null;
+  document.getElementById('studentEditForm').reset();
+}
+
+function setEditStudentMessage(text, type) {
+  const el = document.getElementById('editStudentMessage');
+  if(!el) return;
+  el.textContent = text;
+  el.className = 'message ' + (type || '');
 }
 
 function editStudent(id){
     const student = students.find(s => s.id === id);
     if(!student) return;
-
-    document.getElementById("firstName").value = student.firstName;
-    document.getElementById("lastName").value = student.lastName;
-    document.getElementById("contactNo").value = student.contactNo;
-    document.getElementById("course").value = student.course;
-    document.getElementById("section").value = student.section;
-
-    editingId = id;
-    document.getElementById("studentBtn").textContent = "Update Student";
+    openEditStudentModal(student);
 }
 
-async function deleteStudent(id){
-    if(confirm("Delete this student?")){
-        try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${API_BASE}/students/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
+function handleEditStudentFormSubmit(e) {
+  e.preventDefault();
+  
+  if(!currentEditingStudentId) {
+    setEditStudentMessage('Error: No student selected', 'error');
+    return;
+  }
 
-            if(response.ok){
-                alert('Student deleted successfully!');
-                loadStudents();
-            } else {
-                const error = await response.json();
-                alert('Error: ' + error.error);
-            }
-        } catch(error){
-            console.error('Error deleting student:', error);
-            alert('Error deleting student');
-        }
+  const firstName = document.getElementById('editStudentFirstName').value.trim();
+  const lastName = document.getElementById('editStudentLastName').value.trim();
+  const contactNo = document.getElementById('editStudentContactNo').value.trim();
+  const course = document.getElementById('editStudentCourse').value.trim();
+  const section = document.getElementById('editStudentSection').value.trim();
+  const token = localStorage.getItem('token');
+
+  if(!token) {
+    setEditStudentMessage('Unauthorized: Please login', 'error');
+    return;
+  }
+  if(!firstName || !lastName || !contactNo || !course || !section) {
+    setEditStudentMessage('All fields are required', 'error');
+    return;
+  }
+
+  submitEditStudentForm(firstName, lastName, contactNo, course, section, token, currentEditingStudentId);
+}
+
+async function submitEditStudentForm(firstName, lastName, contactNo, course, section, token, studentId) {
+  try {
+    setEditStudentMessage('Updating student...', 'loading');
+    
+    const body = { firstName, lastName, contactNo, course, section };
+
+    const res = await fetch(`${API_BASE}/students/${studentId}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json', 
+        'Authorization': 'Bearer ' + token 
+      },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json().catch(() => ({ error: 'Failed to parse response' }));
+
+    if(res.ok) {
+      setEditStudentMessage('Student updated successfully', 'success');
+      setTimeout(() => {
+        closeEditStudentModal();
+        loadStudents();
+      }, 500);
+    } else {
+      setEditStudentMessage(data.error || data.message || 'Failed to update student', 'error');
     }
+  } catch(err) {
+    console.error('[ERROR] Edit student error:', err);
+    setEditStudentMessage('Error: ' + err.message, 'error');
+  }
 }
 
 function clearForm(){
@@ -407,7 +481,6 @@ function logout(){
 }
 
 applyUserVisibility();
-loadStudents();
 
 // Section switching (show/hide in-page sections)
 function showSection(name){
@@ -429,14 +502,54 @@ function showSection(name){
     if(name === 'users' && typeof loadUsers === 'function') loadUsers();
 }
 
-// Wire nav links
-document.querySelectorAll('.nav-link').forEach(link => {
-    link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const sec = link.dataset.section || 'home';
-        showSection(sec);
-    });
+document.addEventListener('DOMContentLoaded', function() {
+  // Load students initially if on manage.html page
+  const studentList = document.getElementById('studentList');
+  if(studentList) {
+    loadStudents();
+  }
+
+  // Wire nav links
+  document.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const sec = link.dataset.section || 'home';
+          showSection(sec);
+      });
+  });
+
+  // Setup student edit form event listeners
+  const studentEditForm = document.getElementById('studentEditForm');
+  if(studentEditForm) {
+    studentEditForm.removeEventListener('submit', handleEditStudentFormSubmit);
+    studentEditForm.addEventListener('submit', handleEditStudentFormSubmit);
+  } else {
+    console.warn('[WARN] studentEditForm not found in DOM');
+  }
+
+  const closeEditStudentModalBtn = document.getElementById('closeEditStudentModal');
+  if(closeEditStudentModalBtn) {
+    closeEditStudentModalBtn.removeEventListener('click', closeEditStudentModal);
+    closeEditStudentModalBtn.addEventListener('click', closeEditStudentModal);
+  }
+
+  const cancelEditStudentBtn = document.getElementById('cancelEditStudentBtn');
+  if(cancelEditStudentBtn) {
+    cancelEditStudentBtn.removeEventListener('click', closeEditStudentModal);
+    cancelEditStudentBtn.addEventListener('click', closeEditStudentModal);
+  }
+
+  // Close modal when clicking outside of it
+  window.removeEventListener('click', handleEditStudentOutsideClick);
+  window.addEventListener('click', handleEditStudentOutsideClick);
+
+  // Default to home
+  showSection('home');
 });
 
-// Default to home
-showSection('home');
+function handleEditStudentOutsideClick(e) {
+  const modal = document.getElementById('editStudentModal');
+  if(e.target === modal) {
+    closeEditStudentModal();
+  }
+}
