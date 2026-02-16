@@ -97,9 +97,60 @@ async function loadTodayAttendance() {
                     console.log('[DEBUG] Updated student', student.id, 'to status:', record.status);
                 }
             });
+
+            // Update home page statistics
+            updateHomeStatistics(attendanceRecords);
         }
     } catch(error) {
         console.error('[ERROR] Failed to load attendance:', error);
+    }
+}
+
+function updateHomeStatistics(attendanceRecords) {
+    try {
+        let presentCount = 0, absentCount = 0, lateCount = 0;
+        
+        if(students.length === 0) {
+            // No students, set all to 0
+            document.getElementById("presentCount").textContent = 0;
+            document.getElementById("presentPercentage").textContent = "0%";
+            document.getElementById("absentCount").textContent = 0;
+            document.getElementById("absentPercentage").textContent = "0%";
+            document.getElementById("lateCount").textContent = 0;
+            document.getElementById("latePercentage").textContent = "0%";
+            document.getElementById("totalCount").textContent = 0;
+            document.getElementById("totalPercentage").textContent = "0%";
+            return;
+        }
+
+        // Count attendance status for each student
+        students.forEach(student => {
+            const attendance = attendanceRecords.find(a => a.studentId === student.id);
+            const status = attendance ? attendance.status : 'Absent';
+            
+            if(status === "Present") presentCount++;
+            else if(status === "Late") lateCount++;
+            else absentCount++;
+        });
+        
+        const total = students.length;
+        const presentPct = total > 0 ? Math.round((presentCount / total) * 100) : 0;
+        const absentPct = total > 0 ? Math.round((absentCount / total) * 100) : 0;
+        const latePct = total > 0 ? Math.round((lateCount / total) * 100) : 0;
+        
+        // Update UI
+        document.getElementById("presentCount").textContent = presentCount;
+        document.getElementById("presentPercentage").textContent = presentPct + "%";
+        document.getElementById("absentCount").textContent = absentCount;
+        document.getElementById("absentPercentage").textContent = absentPct + "%";
+        document.getElementById("lateCount").textContent = lateCount;
+        document.getElementById("latePercentage").textContent = latePct + "%";
+        document.getElementById("totalCount").textContent = total;
+        document.getElementById("totalPercentage").textContent = "100%";
+        
+        console.log('[DEBUG] Home stats updated - Present:', presentCount, 'Late:', lateCount, 'Absent:', absentCount);
+    } catch(error) {
+        console.error('[ERROR] Failed to update home statistics:', error);
     }
 }
 
@@ -503,9 +554,12 @@ function showSection(name){
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  // Load students initially if on manage.html page
+  // Load students if on a page that needs it (manage.html, attendance.html, or portal.html)
   const studentList = document.getElementById('studentList');
-  if(studentList) {
+  const attendanceSection = document.getElementById('attendanceSection');
+  const sectionHome = document.getElementById('section-home');
+  
+  if(studentList || attendanceSection || sectionHome) {
     loadStudents();
   }
 
