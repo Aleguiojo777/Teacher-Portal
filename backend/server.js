@@ -275,26 +275,66 @@ function verifyToken(req, res, next) {
 // GET all students
 app.get('/api/students', verifyToken, (req, res) => {
   // When calling protected endpoints, the frontend must send Authorization: Bearer <token>
-  db.all('SELECT * FROM students ORDER BY id DESC', (err, rows) => {
+  // Check if user is admin or teacher
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
     if (err) {
-      res.status(500).json({ error: err.message });
-    } else {
-      res.json(rows || []);
+      return res.status(500).json({ error: err.message });
     }
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    // Admins see all students, teachers see only their own students
+    const isAdmin = Number(user.isAdmin) === 1;
+    const query = isAdmin 
+      ? 'SELECT * FROM students ORDER BY id DESC'
+      : 'SELECT * FROM students WHERE createdBy = ? ORDER BY id DESC';
+    
+    const params = isAdmin ? [] : [req.adminId];
+    
+    db.all(query, params, (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+      } else {
+        res.json(rows || []);
+      }
+    });
   });
 });
 
 // GET single student by ID
 app.get('/api/students/:id', verifyToken, (req, res) => {
   const { id } = req.params;
-  db.get('SELECT * FROM students WHERE id = ?', [id], (err, row) => {
+  
+  // Check if user is admin or teacher
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
     if (err) {
-      res.status(500).json({ error: err.message });
-    } else if (!row) {
-      res.status(404).json({ error: 'Student not found' });
-    } else {
-      res.json(row);
+      return res.status(500).json({ error: err.message });
     }
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const isAdmin = Number(user.isAdmin) === 1;
+    
+    // Admins can see any student, teachers can only see their own students
+    const query = isAdmin
+      ? 'SELECT * FROM students WHERE id = ?'
+      : 'SELECT * FROM students WHERE id = ? AND createdBy = ?';
+    
+    const params = isAdmin ? [id] : [id, req.adminId];
+    
+    db.get(query, params, (err, row) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+      } else if (!row) {
+        res.status(404).json({ error: 'Student not found or access denied' });
+      } else {
+        res.json(row);
+      }
+    });
   });
 });
 
@@ -335,23 +375,53 @@ app.put('/api/students/:id', verifyToken, (req, res) => {
     return res.status(400).json({ error: 'All fields are required' });
   }
 
-  const sql = 'UPDATE students SET firstName = ?, lastName = ?, contactNo = ?, course = ?, section = ? WHERE id = ?';
-  db.run(sql, [firstName, lastName, contactNo, course, section, id], function(err) {
+  // Check if user is admin or teacher
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
     if (err) {
-      res.status(500).json({ error: err.message });
-    } else if (this.changes === 0) {
-      res.status(404).json({ error: 'Student not found' });
-    } else {
-      res.json({
-        id,
-        firstName,
-        lastName,
-        contactNo,
-        course,
-        section,
-        message: 'Student updated successfully'
-      });
+      return res.status(500).json({ error: err.message });
     }
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const isAdmin = Number(user.isAdmin) === 1;
+    
+    // Check if student exists and if teacher has access
+    const query = isAdmin
+      ? 'SELECT * FROM students WHERE id = ?'
+      : 'SELECT * FROM students WHERE id = ? AND createdBy = ?';
+    
+    const params = isAdmin ? [id] : [id, req.adminId];
+    
+    db.get(query, params, (err, student) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (!student) {
+        return res.status(404).json({ error: 'Student not found or access denied' });
+      }
+
+      const sql = 'UPDATE students SET firstName = ?, lastName = ?, contactNo = ?, course = ?, section = ? WHERE id = ?';
+      db.run(sql, [firstName, lastName, contactNo, course, section, id], function(err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+        } else if (this.changes === 0) {
+          res.status(404).json({ error: 'Student not found' });
+        } else {
+          res.json({
+            id,
+            firstName,
+            lastName,
+            contactNo,
+            course,
+            section,
+            message: 'Student updated successfully'
+          });
+        }
+      });
+    });
   });
 });
 
@@ -359,14 +429,44 @@ app.put('/api/students/:id', verifyToken, (req, res) => {
 app.delete('/api/students/:id', verifyToken, (req, res) => {
   const { id } = req.params;
 
-  db.run('DELETE FROM students WHERE id = ?', [id], function(err) {
+  // Check if user is admin or teacher
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
     if (err) {
-      res.status(500).json({ error: err.message });
-    } else if (this.changes === 0) {
-      res.status(404).json({ error: 'Student not found' });
-    } else {
-      res.json({ message: 'Student deleted successfully' });
+      return res.status(500).json({ error: err.message });
     }
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const isAdmin = Number(user.isAdmin) === 1;
+    
+    // Check if student exists and if teacher has access
+    const query = isAdmin
+      ? 'SELECT * FROM students WHERE id = ?'
+      : 'SELECT * FROM students WHERE id = ? AND createdBy = ?';
+    
+    const params = isAdmin ? [id] : [id, req.adminId];
+    
+    db.get(query, params, (err, student) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (!student) {
+        return res.status(404).json({ error: 'Student not found or access denied' });
+      }
+
+      db.run('DELETE FROM students WHERE id = ?', [id], function(err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+        } else if (this.changes === 0) {
+          res.status(404).json({ error: 'Student not found' });
+        } else {
+          res.json({ message: 'Student deleted successfully' });
+        }
+      });
+    });
   });
 });
 
@@ -385,6 +485,41 @@ app.post('/api/attendance', verifyToken, (req, res) => {
 
   const date = attendanceDate || new Date().toISOString().split('T')[0];
 
+  // Check if user is admin or teacher, and if teacher, verify student ownership
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const isAdmin = Number(user.isAdmin) === 1;
+    
+    // For teachers, verify they own the student
+    if (!isAdmin) {
+      db.get('SELECT id FROM students WHERE id = ? AND createdBy = ?', [studentId, req.adminId], (err, student) => {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
+        
+        if (!student) {
+          return res.status(403).json({ error: 'Access denied: Student not found or does not belong to you' });
+        }
+
+        // Student belongs to teacher, proceed with attendance recording
+        recordAttendance(studentId, status, date, recordedBy, res);
+      });
+    } else {
+      // Admin can record attendance for any student
+      recordAttendance(studentId, status, date, recordedBy, res);
+    }
+  });
+});
+
+// Helper function to record attendance
+function recordAttendance(studentId, status, date, recordedBy, res) {
   const sql = `
     INSERT OR REPLACE INTO attendance (studentId, status, attendanceDate, recordedBy)
     VALUES (?, ?, ?, ?)
@@ -398,24 +533,99 @@ app.post('/api/attendance', verifyToken, (req, res) => {
     console.log('[DEBUG] Attendance saved - studentId:', studentId, 'status:', status);
     res.json({ success: true, message: 'Attendance recorded' });
   });
-});
+}
 
 // Get attendance for a specific date
 app.get('/api/attendance/:date', verifyToken, (req, res) => {
   const date = req.params.date;
 
-  db.all(`
-    SELECT a.id, a.studentId, a.status, a.attendanceDate, s.firstName, s.lastName, s.course, s.section
-    FROM attendance a
-    LEFT JOIN students s ON a.studentId = s.id
-    WHERE a.attendanceDate = ?
-    ORDER BY s.section, s.firstName
-  `, [date], (err, rows) => {
+  // Check if user is admin or teacher
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
     if (err) {
-      console.error('[ERROR] Failed to get attendance:', err.message);
       return res.status(500).json({ error: err.message });
     }
-    res.json(rows || []);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const isAdmin = Number(user.isAdmin) === 1;
+    
+    // Admins see all attendance records, teachers see only their own students' attendance
+    const query = isAdmin
+      ? `
+        SELECT a.id, a.studentId, a.status, a.attendanceDate, s.firstName, s.lastName, s.course, s.section
+        FROM attendance a
+        LEFT JOIN students s ON a.studentId = s.id
+        WHERE a.attendanceDate = ?
+        ORDER BY s.section, s.firstName
+      `
+      : `
+        SELECT a.id, a.studentId, a.status, a.attendanceDate, s.firstName, s.lastName, s.course, s.section
+        FROM attendance a
+        LEFT JOIN students s ON a.studentId = s.id
+        WHERE a.attendanceDate = ? AND s.createdBy = ?
+        ORDER BY s.section, s.firstName
+      `;
+    
+    const params = isAdmin ? [date] : [date, req.adminId];
+    
+    db.all(query, params, (err, rows) => {
+      if (err) {
+        console.error('[ERROR] Failed to get attendance:', err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(rows || []);
+    });
+  });
+});
+
+// Get attendance report for a date range
+app.get('/api/reports/attendance', verifyToken, (req, res) => {
+  const { startDate, endDate } = req.query;
+  
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'startDate and endDate query parameters are required' });
+  }
+
+  // Check if user is admin or teacher
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const isAdmin = Number(user.isAdmin) === 1;
+    
+    // Admins see all attendance records, teachers see only their own students' attendance
+    const query = isAdmin
+      ? `
+        SELECT a.id, a.studentId, a.status, a.attendanceDate, s.firstName, s.lastName, s.course, s.section
+        FROM attendance a
+        LEFT JOIN students s ON a.studentId = s.id
+        WHERE a.attendanceDate BETWEEN ? AND ?
+        ORDER BY a.attendanceDate DESC, s.section, s.firstName
+      `
+      : `
+        SELECT a.id, a.studentId, a.status, a.attendanceDate, s.firstName, s.lastName, s.course, s.section
+        FROM attendance a
+        LEFT JOIN students s ON a.studentId = s.id
+        WHERE a.attendanceDate BETWEEN ? AND ? AND s.createdBy = ?
+        ORDER BY a.attendanceDate DESC, s.section, s.firstName
+      `;
+    
+    const params = isAdmin ? [startDate, endDate] : [startDate, endDate, req.adminId];
+    
+    db.all(query, params, (err, rows) => {
+      if (err) {
+        console.error('[ERROR] Failed to get attendance report:', err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(rows || []);
+    });
   });
 });
 
