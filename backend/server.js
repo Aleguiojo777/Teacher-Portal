@@ -4,8 +4,38 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 
+// Load environment variables
+require('dotenv').config();
+
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+
+// ============= ENVIRONMENT VALIDATION =============
+function validateEnvironment() {
+  const isDevelopment = (process.env.NODE_ENV || 'development') === 'development';
+  const requiredVars = ['JWT_SECRET'];
+  const missingVars = requiredVars.filter(v => !process.env[v]);
+
+  if (missingVars.length > 0) {
+    console.warn(`[WARNING] Missing environment variables: ${missingVars.join(', ')}`);
+    if (!isDevelopment) {
+      console.error('[ERROR] Required environment variables are missing. Exiting...');
+      process.exit(1);
+    }
+  }
+
+  // Warn if using default JWT_SECRET in production
+  if (!isDevelopment && process.env.JWT_SECRET === 'change_this_to_a_secure_random_string_in_production_min_32_chars') {
+    console.error('[ERROR] Cannot run in production with default JWT_SECRET. Please set a secure secret.');
+    process.exit(1);
+  }
+
+  console.log(`[INFO] Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`[INFO] Database: ${process.env.DATABASE_PATH || './database/teacher_portal.db'}`);
+  console.log(`[INFO] Log Level: ${process.env.LOG_LEVEL || 'debug'}`);
+}
+
+validateEnvironment();
 
 // Middleware
 app.use(cors());
@@ -22,7 +52,7 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Database setup
-const db = new sqlite3.Database(path.join(__dirname, 'database.db'), (err) => {
+const db = new sqlite3.Database(path.join(__dirname, process.env.DATABASE_PATH || './database/teacher_portal.db'), (err) => {
   if (err) {
     console.error('Error opening database:', err.message);
   } else {
@@ -836,8 +866,12 @@ app.get('/', (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
+  console.log(`\n${'='.repeat(50)}`);
   console.log(`Server is running on http://localhost:${PORT}`);
-  console.log('\nTest the following:');
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Database: ${process.env.DATABASE_PATH || './database/teacher_portal.db'}`);
+  console.log(`${'='.repeat(50)}\n`);
+  console.log('Test the following:');
   console.log('1. Register a new Admin account');
   console.log('2. Login with your email and password');
   console.log('3. Create and manage student accounts');
