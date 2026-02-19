@@ -11,7 +11,7 @@ window.API_BASE = window.API_BASE || (function(){
 })();
 const API_BASE_LOCAL = window.API_BASE;
 
-// Login form handler
+
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
