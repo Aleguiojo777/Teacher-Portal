@@ -84,7 +84,7 @@ async function loadUsers(){
       }
 
       const row = document.createElement('tr');
-      row.innerHTML = `<td>${i+1}</td><td>${escapeHtml(u.fullName)}</td><td>${escapeHtml(u.email)}</td><td>${role}</td><td>${u.createdAt}</td><td>${actions}</td>`;
+      row.innerHTML = `<td>${i+1}</td><td>${escapeHtml(u.fullName)}</td><td>${escapeHtml(u.email)}</td><td>${role}</td><td>${formatDateTime(u.createdAt)}</td><td>${actions}</td>`;
       body.appendChild(row);
     });
 
@@ -128,7 +128,20 @@ async function handleUserAction(e) {
 // Basic XSS escape for names/emails
 function escapeHtml(s){
   if(!s) return '';
-  return String(s).replace(/[&<>"']/g, (c)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return String(s).replace(/[&<>\"']/g, (c)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Format timestamp string into readable local datetime
+function formatDateTime(ts){
+  if(!ts) return '';
+  try{
+    const iso = String(ts).trim().replace(' ', 'T');
+    const d = new Date(iso);
+    if(isNaN(d.getTime())) return ts;
+    return d.toLocaleString();
+  }catch(e){
+    return ts;
+  }
 }
 
 // Modal functions

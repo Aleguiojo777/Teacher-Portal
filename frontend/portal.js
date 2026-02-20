@@ -51,6 +51,20 @@ document.addEventListener('DOMContentLoaded', function() {
    LOAD STUDENTS FROM API
 =========================== */
 
+// Helper to format timestamp strings to a readable local datetime
+function formatDateTime(ts){
+  if(!ts) return '';
+  try{
+    // Normalize common SQLite datetime format "YYYY-MM-DD HH:MM:SS" to ISO
+    const iso = String(ts).trim().replace(' ', 'T');
+    const d = new Date(iso);
+    if(isNaN(d.getTime())) return ts;
+    return d.toLocaleString();
+  }catch(e){
+    return ts;
+  }
+}
+
 async function loadStudents(){
     try {
         const token = localStorage.getItem('token');
@@ -234,10 +248,10 @@ function renderStudents(){
     list.innerHTML = "";
 
     students.forEach((s, i)=>{
-        const row = document.createElement('tr');
-        row.innerHTML = `<td>${i+1}</td><td>${s.firstName}</td><td>${s.lastName}</td><td>${s.contactNo}</td><td>${s.course}</td><td>${s.section}</td><td><button class="edit-student" data-id="${s.id}" data-student='${JSON.stringify(s)}'>Edit</button>
-                  <button class="delete-student" data-id="${s.id}">Delete</button></td></tr>`;
-        list.appendChild(row);
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${i+1}</td><td>${s.firstName}</td><td>${s.lastName}</td><td>${s.contactNo}</td><td>${s.course}</td><td>${s.section}</td><td>${formatDateTime(s.createdAt)}</td><td><button class="edit-student" data-id="${s.id}" data-student='${JSON.stringify(s)}'>Edit</button>
+            <button class="delete-student" data-id="${s.id}">Delete</button></td></tr>`;
+      list.appendChild(row);
     });
 
     // Use event delegation for edit and delete buttons
