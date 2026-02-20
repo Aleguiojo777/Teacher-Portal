@@ -22,7 +22,7 @@
     <li><a href="#" data-section="home" class="nav-link">Home</a></li>
     <li><a href="#" data-section="manage" class="nav-link">Manage Students</a></li>
     <li><a href="#" data-section="attendance" class="nav-link">Attendance</a></li>
-    <li><a href="attendance-report.html">Attendance Report</a></li>
+    <li><a href="attendance-report.html">Attendance Summary</a></li>
     <li id="userMgmtNav" class="hidden"><a href="user-management.html">User Management</a></li>
     <li id="logoutNav" class="hidden"><a href="#" id="logoutLink">Logout</a></li>
   </ul>
@@ -34,6 +34,10 @@
     <div class="card welcome">
       <h2 id="welcomeTitle">Welcome</h2>
       <p id="welcomeText">Use the menu to manage students and attendance.</p>
+      <div style="margin-top:12px">
+        <label for="homeReportDate">Select Date:</label>
+        <input type="date" id="homeReportDate" style="margin-left:8px" />
+      </div>
     </div>
 
     <div class="report-grid">
@@ -111,6 +115,7 @@
             <th>Name</th>
             <th>Course</th>
             <th>Status</th>
+            <th>Marked At</th>
             <th>Action</th>
           </tr>
         </thead>

@@ -26,6 +26,24 @@ document.addEventListener('DOMContentLoaded', function() {
   
   if(sidebarToggle && sidebar) {
     sidebarToggle.addEventListener('click', function() {
+
+// Setup home date picker to default to today and listen for changes
+document.addEventListener('DOMContentLoaded', function() {
+  const homeDate = document.getElementById('homeReportDate');
+  if(homeDate){
+    const today = new Date().toISOString().split('T')[0];
+    if(!homeDate.value) homeDate.value = today;
+    homeDate.removeEventListener('change', handleHomeDateChange);
+    homeDate.addEventListener('change', handleHomeDateChange);
+  }
+});
+
+function handleHomeDateChange(e){
+  const d = e.target.value;
+  loadAttendanceForDate(d).then(()=>{
+    renderStudents();
+  });
+}
       sidebar.classList.toggle('show');
     });
     
@@ -80,8 +98,10 @@ async function loadStudents(){
                 }
             });
             
-            // Load attendance for today
-            await loadTodayAttendance();
+            // Load attendance for selected date (Home date picker) or today by default
+            const dateInput = document.getElementById('homeReportDate');
+            const dateToLoad = dateInput && dateInput.value ? dateInput.value : new Date().toISOString().split('T')[0];
+            await loadAttendanceForDate(dateToLoad);
             renderStudents();
             loadSections();
         }
@@ -91,33 +111,40 @@ async function loadStudents(){
     }
 }
 
-async function loadTodayAttendance() {
-    try {
-        const token = localStorage.getItem('token');
-        const today = new Date().toISOString().split('T')[0];
-        const response = await fetch(`${API_BASE}/attendance/${today}`, {
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
-        
-        if(response.ok) {
-            const attendanceRecords = await response.json();
-            console.log('[DEBUG] Attendance records loaded:', attendanceRecords);
-            
-            // Update student statuses from attendance records
-            attendanceRecords.forEach(record => {
-                const student = students.find(s => s.id === record.studentId);
-                if(student) {
-                    student.status = record.status;
-                    console.log('[DEBUG] Updated student', student.id, 'to status:', record.status);
-                }
-            });
+// Load attendance for a specific date (format: YYYY-MM-DD)
+async function loadAttendanceForDate(dateStr){
+  try {
+    const token = localStorage.getItem('token');
+    const date = dateStr || new Date().toISOString().split('T')[0];
+    const response = await fetch(`${API_BASE}/attendance/${date}`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
 
-            // Update home page statistics
-            updateHomeStatistics(attendanceRecords);
+    if(response.ok) {
+      const attendanceRecords = await response.json();
+      console.log('[DEBUG] Attendance records loaded for', date, attendanceRecords);
+
+      // Update student statuses from attendance records
+      attendanceRecords.forEach(record => {
+        const student = students.find(s => s.id === record.studentId);
+        if(student) {
+          student.status = record.status;
+          // Preserve the timestamp when this status was recorded
+          student.markedAt = record.createdAt || record.updatedAt || record.timestamp || null;
+          console.log('[DEBUG] Updated student', student.id, 'to status:', record.status, 'at', student.markedAt);
         }
-    } catch(error) {
-        console.error('[ERROR] Failed to load attendance:', error);
+      });
+
+      // Update home page statistics
+      updateHomeStatistics(attendanceRecords);
+    } else {
+      // If no records or error, clear statuses for students
+      students.forEach(s => { s.status = s.status || 'Absent'; s.markedAt = null; });
+      updateHomeStatistics([]);
     }
+  } catch(error) {
+    console.error('[ERROR] Failed to load attendance:', error);
+  }
 }
 
 function updateHomeStatistics(attendanceRecords) {
@@ -248,9 +275,9 @@ function renderStudents(){
     list.innerHTML = "";
 
     students.forEach((s, i)=>{
-      const row = document.createElement('tr');
-      row.innerHTML = `<td>${i+1}</td><td>${s.firstName}</td><td>${s.lastName}</td><td>${s.contactNo}</td><td>${s.course}</td><td>${s.section}</td><td>${formatDateTime(s.createdAt)}</td><td><button class="edit-student" data-id="${s.id}" data-student='${JSON.stringify(s)}'>Edit</button>
-            <button class="delete-student" data-id="${s.id}">Delete</button></td></tr>`;
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>${i+1}</td><td>${s.firstName}</td><td>${s.lastName}</td><td>${s.contactNo}</td><td>${s.course}</td><td>${s.section}</td><td>${s.markedAt ? formatDateTime(s.markedAt) : ''}</td><td>${formatDateTime(s.createdAt)}</td><td><button class="edit-student" data-id="${s.id}" data-student='${JSON.stringify(s)}'>Edit</button>
+          <button class="delete-student" data-id="${s.id}">Delete</button></td></tr>`;
       list.appendChild(row);
     });
 
@@ -423,6 +450,12 @@ function loadAttendance(){
     list.innerHTML = "";
     let count = 0;
 
+  // Determine if editing is allowed (only for today's date)
+  const homeDateEl = document.getElementById('homeReportDate');
+  const selectedDate = homeDateEl && homeDateEl.value ? homeDateEl.value : new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+  const allowEdit = selectedDate === today;
+
     students.forEach((s, index)=>{
         if(s.section === sec){
             count++;
@@ -431,17 +464,18 @@ function loadAttendance(){
             console.log('[DEBUG] Student:', s.firstName, 'Status:', s.status, 'Class:', statusClass);
             list.innerHTML += `
             <tr>
-                <td>${count}</td>
-                <td>${fullName}</td>
-                <td>${s.course}</td>
-                <td class="${statusClass}">
-                    ${s.status || "Absent"}
-                </td>
-                <td>
-                    <button class="btn-present" onclick="setStatus(${s.id}, 'Present')">Present</button>
-                    <button class="btn-late" onclick="setStatus(${s.id}, 'Late')">Late</button>
-                    <button class="btn-absent" onclick="setStatus(${s.id}, 'Absent')">Absent</button>
-                </td>
+              <td>${count}</td>
+              <td>${fullName}</td>
+              <td>${s.course}</td>
+              <td class="${statusClass}">
+                ${s.status || "Absent"}
+              </td>
+              <td>${s.markedAt ? formatDateTime(s.markedAt) : ''}</td>
+              <td>
+                ${allowEdit ? `<button class="btn-present" onclick="setStatus(${s.id}, 'Present')">Present</button>
+                <button class="btn-late" onclick="setStatus(${s.id}, 'Late')">Late</button>
+                <button class="btn-absent" onclick="setStatus(${s.id}, 'Absent')">Absent</button>` : '<em>Read-only</em>'}
+              </td>
             </tr>
             `;
         }

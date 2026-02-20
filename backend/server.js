@@ -584,7 +584,7 @@ app.get('/api/attendance/:date', verifyToken, (req, res) => {
     // Admins see all attendance records, teachers see only their own students' attendance
     const query = isAdmin
       ? `
-        SELECT a.id, a.studentId, a.status, a.attendanceDate, s.firstName, s.lastName, s.course, s.section
+        SELECT a.id, a.studentId, a.status, a.attendanceDate, a.createdAt, s.firstName, s.lastName, s.course, s.section
         FROM attendance a
         LEFT JOIN students s ON a.studentId = s.id
         WHERE a.attendanceDate = ?
@@ -633,7 +633,7 @@ app.get('/api/reports/attendance', verifyToken, (req, res) => {
     // Admins see all attendance records, teachers see only their own students' attendance
     const query = isAdmin
       ? `
-        SELECT a.id, a.studentId, a.status, a.attendanceDate, s.firstName, s.lastName, s.course, s.section
+        SELECT a.id, a.studentId, a.status, a.attendanceDate, a.createdAt, s.firstName, s.lastName, s.course, s.section
         FROM attendance a
         LEFT JOIN students s ON a.studentId = s.id
         WHERE a.attendanceDate BETWEEN ? AND ?

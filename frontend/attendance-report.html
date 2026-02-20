@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Attendance Report</title>
+<title>Attendance Summary</title>
 <link rel="stylesheet" href="portal.css">
 <!-- Favicon -->
 <link rel="icon" type="image/x-icon" href="resources/favicon.ico">
@@ -185,7 +185,7 @@
   <div class="container">
 
 <div class="card">
-  <h2>Attendance Report</h2>
+  <h2>Attendance Summary</h2>
   
   <div class="section-select">
     <label for="reportDate">Select Date:</label>
@@ -216,6 +216,7 @@
           <th>Course</th>
           <th>Section</th>
           <th>Status</th>
+          <th>Marked At</th>
         </tr>
       </thead>
       <tbody id="summaryList"></tbody>
@@ -370,12 +371,14 @@
         else if(status === 'Late') statusBadgeClass += 'late';
         else statusBadgeClass += 'absent';
         
+        const markedAt = (attendance && (attendance.createdAt || attendance.updatedAt || attendance.timestamp)) ? new Date(String(attendance.createdAt || attendance.updatedAt || attendance.timestamp).trim().replace(' ', 'T')).toLocaleString() : '';
         row.innerHTML = `
           <td>${idx + 1}</td>
           <td>${student.firstName} ${student.lastName}</td>
           <td>${student.course}</td>
           <td>${student.section}</td>
           <td><span class="${statusBadgeClass}">${status}</span></td>
+          <td>${markedAt}</td>
         `;
         summaryList.appendChild(row);
       });
