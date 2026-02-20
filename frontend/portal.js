@@ -301,10 +301,11 @@ function renderStudents(){
 
 // Handle student action (edit or delete)
 async function handleStudentAction(e) {
-  if(e.target.classList.contains('edit-student')) {
+  // Support both legacy classes and the newer button classes
+  if(e.target.classList.contains('edit-student') || e.target.classList.contains('edit-user')) {
     const studentData = JSON.parse(e.target.dataset.student);
     openEditStudentModal(studentData);
-  } else if(e.target.classList.contains('delete-student')) {
+  } else if(e.target.classList.contains('delete-student') || e.target.classList.contains('delete-user')) {
     const id = e.target.dataset.id;
     if(!confirm('Delete this student?')) return;
     try{
