@@ -275,9 +275,21 @@ function renderStudents(){
     list.innerHTML = "";
 
     students.forEach((s, i)=>{
-    const row = document.createElement('tr');
-    row.innerHTML = `<td>${i+1}</td><td>${s.firstName}</td><td>${s.lastName}</td><td>${s.contactNo}</td><td>${s.course}</td><td>${s.section}</td><td>${s.markedAt ? formatDateTime(s.markedAt) : ''}</td><td>${formatDateTime(s.createdAt)}</td><td><button class="edit-student" data-id="${s.id}" data-student='${JSON.stringify(s)}'>Edit</button>
-          <button class="delete-student" data-id="${s.id}">Delete</button></td></tr>`;
+      const row = document.createElement('tr');
+      // Keep columns consistent with the table header: index, first, last, contact, course, section, registered(createdAt), action
+      row.innerHTML = `
+        <td>${i+1}</td>
+        <td>${s.firstName}</td>
+        <td>${s.lastName}</td>
+        <td>${s.contactNo}</td>
+        <td>${s.course}</td>
+        <td>${s.section}</td>
+        <td>${formatDateTime(s.createdAt)}</td>
+        <td>
+          <button class="edit-user" data-id="${s.id}" data-student='${JSON.stringify(s)}'>Edit</button>
+          <button class="delete-user" data-id="${s.id}">Delete</button>
+        </td>
+      `;
       list.appendChild(row);
     });
 

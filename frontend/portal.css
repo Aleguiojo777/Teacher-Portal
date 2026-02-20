@@ -351,6 +351,23 @@ background:#f1f5f9;
   background: #dc2626;
 }
 
+/* Ensure action buttons in tables sit side-by-side and align nicely */
+.table-responsive td > button, td > .edit-user, td > .delete-user {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 4px 6px;
+}
+
+/* On very small screens stack the buttons */
+@media (max-width: 420px) {
+  .table-responsive td > button, td > .edit-user, td > .delete-user {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 6px 0;
+  }
+}
+
 /* Attendance buttons */
 .btn-present, .btn-late, .btn-absent {
   padding: 6px 10px;
