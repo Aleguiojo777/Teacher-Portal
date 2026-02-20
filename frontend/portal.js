@@ -480,8 +480,8 @@ function loadAttendance(){
               <td>${count}</td>
               <td>${fullName}</td>
               <td>${s.course}</td>
-              <td class="${statusClass}">
-                ${s.status || "Absent"}
+              <td>
+                <span class="status-badge ${statusClass}">${s.status || "Absent"}</span>
               </td>
               <td>${s.markedAt ? formatDateTime(s.markedAt) : ''}</td>
               <td>

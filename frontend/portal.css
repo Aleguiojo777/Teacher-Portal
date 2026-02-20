@@ -189,6 +189,25 @@ padding:10px;
 text-align:center;
 }
 
+/* Ensure table cells align vertically center to avoid rows expanding */
+.table-responsive table th,
+.table-responsive table td {
+  vertical-align: middle;
+}
+
+/* Status badge styles (small pill) */
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 600;
+}
+.status-badge.present { background:#d1fae5; color:#065f46; }
+.status-badge.absent { background:#fff1f2; color:#9b1c1c; }
+.status-badge.late { background:#fff7ed; color:#92400e; }
+
 tr:nth-child(even){
 background:#f1f5f9;
 }
