@@ -719,8 +719,9 @@ app.put('/api/users/:id', verifyToken, async (req, res) => {
         console.warn('[WARN PUT] Target user not found');
         return res.status(404).json({ error: 'User not found' });
       }
-      if (Number(target.isMain) === 1) {
-        console.warn('[WARN PUT] Cannot edit main administrator');
+      // Allow the main administrator to edit their own account, but prevent other admins from editing the main admin
+      if (Number(target.isMain) === 1 && targetId !== req.adminId) {
+        console.warn('[WARN PUT] Cannot edit main administrator by another admin');
         return res.status(403).json({ error: 'Cannot edit the main administrator' });
       }
 

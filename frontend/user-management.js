@@ -70,10 +70,19 @@ async function loadUsers(){
     users.forEach((u, i) => {
       const role = Number(u.isAdmin) === 1 ? 'Administrator' : 'Teacher';
       let actions = '';
-      if(storedAdmin && Number(storedAdmin.isMain) === 1 && Number(u.isMain) !== 1){
-        actions = `<button class="edit-user" data-id="${u.id}" data-user='${JSON.stringify(u)}'>Edit</button>
-                  <button class="delete-user" data-id="${u.id}">Delete</button>`;
+      // If logged-in admin is the main administrator
+      if (storedAdmin && Number(storedAdmin.isMain) === 1) {
+        // Main admin can edit any user (including the main account itself)
+        actions = `<button class="edit-user" data-id="${u.id}" data-user='${JSON.stringify(u)}'>Edit</button>`;
+        // Only allow delete for non-main users and not deleting self
+        if (Number(u.isMain) !== 1 && Number(u.id) !== Number(storedAdmin.id)) {
+          actions += `<button class="delete-user" data-id="${u.id}">Delete</button>`;
+        }
+      } else if (storedAdmin && Number(storedAdmin.id) === Number(u.id)) {
+        // Non-main admins may edit their own account
+        actions = `<button class="edit-user" data-id="${u.id}" data-user='${JSON.stringify(u)}'>Edit</button>`;
       }
+
       const row = document.createElement('tr');
       row.innerHTML = `<td>${i+1}</td><td>${escapeHtml(u.fullName)}</td><td>${escapeHtml(u.email)}</td><td>${role}</td><td>${u.createdAt}</td><td>${actions}</td>`;
       body.appendChild(row);
