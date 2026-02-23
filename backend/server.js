@@ -6,6 +6,8 @@ const sqlite3 = require('sqlite3').verbose();
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
+const logger = require('./logger');
+const alerts = require('./alerts');
 
 // Load environment variables
 require('dotenv').config();
@@ -18,6 +20,18 @@ app.use(express.json());
 
 // Basic security headers
 app.use(helmet());
+
+// Simple request logging
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.url} - ${req.ip}`);
+  next();
+});
+
+// In-memory account lockout tracking (email -> { count, firstAttempt, lockedUntil })
+const loginAttempts = new Map();
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const LOCK_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 
 // ============= ENVIRONMENT VALIDATION =============
 function validateEnvironment() {
@@ -233,25 +247,66 @@ app.post('/api/admin/login', loginLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
+    // Account-level lockout check
+    const key = (email || '').toLowerCase();
+    const attempt = loginAttempts.get(key);
+    const now = Date.now();
+    if (attempt && attempt.lockedUntil && attempt.lockedUntil > now) {
+      logger.warn(`Locked login attempt for ${key}`);
+      return res.status(429).json({ error: 'Account locked due to repeated failed login attempts. Try again later.' });
+    }
+
     // Find admin by email
     db.get('SELECT * FROM admins WHERE email = ?', [email], async (err, admin) => {
       if (err) {
         return res.status(500).json({ error: err.message });
       }
 
-      if (!admin) {
-        return res.status(401).json({ error: 'Invalid email or password' });
-      }
+        if (!admin) {
+          // increment attempt counter by email
+          const prev = loginAttempts.get(key) || { count: 0, firstAttempt: now };
+          prev.count = (prev.count || 0) + 1;
+          if (!prev.firstAttempt) prev.firstAttempt = now;
+          // reset window
+          if (now - prev.firstAttempt > WINDOW_MS) {
+            prev.count = 1;
+            prev.firstAttempt = now;
+          }
+          if (prev.count >= MAX_ATTEMPTS) {
+            prev.lockedUntil = now + LOCK_DURATION_MS;
+            logger.warn(`Account locked for ${key} due to repeated failed attempts`);
+            // send alert (best-effort)
+            try { alerts.sendLockoutEmail(key, req.ip); } catch (e) { logger.error('Alert send failed: ' + (e && e.message)); }
+          }
+          loginAttempts.set(key, prev);
+          return res.status(401).json({ error: 'Invalid email or password' });
+        }
 
       // Compare passwords
       try {
         const validPassword = await bcrypt.compare(password, admin.password);
         
         if (!validPassword) {
+          // increment attempt counter
+          const prev = loginAttempts.get(key) || { count: 0, firstAttempt: now };
+          prev.count = (prev.count || 0) + 1;
+          if (!prev.firstAttempt) prev.firstAttempt = now;
+          if (now - prev.firstAttempt > WINDOW_MS) {
+            prev.count = 1;
+            prev.firstAttempt = now;
+          }
+          if (prev.count >= MAX_ATTEMPTS) {
+            prev.lockedUntil = now + LOCK_DURATION_MS;
+            logger.warn(`Account locked for ${key} due to repeated failed attempts`);
+            try { alerts.sendLockoutEmail(key, req.ip); } catch (e) { logger.error('Alert send failed: ' + (e && e.message)); }
+          }
+          loginAttempts.set(key, prev);
           return res.status(401).json({ error: 'Invalid email or password' });
         }
 
         // Login successful
+        // reset attempts on success
+        if (loginAttempts.has(key)) loginAttempts.delete(key);
         res.status(200).json({
           success: true,
           message: 'Login successful',
