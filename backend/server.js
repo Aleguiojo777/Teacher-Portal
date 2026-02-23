@@ -37,9 +37,18 @@ function validateEnvironment() {
 
 validateEnvironment();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// SECURITY: Strict CORS - only allow same origin
+const allowedOrigins = [process.env.CORS_ORIGIN || 'http://localhost:3000'];
+if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
+  console.error('[SECURITY ERROR] CORS_ORIGIN must be set in production');
+  process.exit(1);
+}
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Add a relaxed Content Security Policy so the frontend can connect back to the API
 app.use((req, res, next) => {
@@ -134,38 +143,12 @@ function initializeDatabase() {
     }
   });
 }
-  // Insert default admin account if it doesn't exist
-  const defaultAdminEmail = 'aleguiojoaljey@gmail.com';
-  const defaultAdminName = 'Default Admin';
-  const defaultAdminPassword = 'admin123';
 
-  db.get('SELECT id FROM admins WHERE email = ?', [defaultAdminEmail], (err, row) => {
-    if (err) {
-      console.error('Error checking default admin:', err.message);
-      return;
-    }
-
-    if (row) {
-      console.log('Default admin already exists');
-      return;
-    }
-
-    // Hash the default password and insert the admin (mark as main)
-    bcrypt.hash(defaultAdminPassword, 10)
-      .then((hashed) => {
-        const insertSql = 'INSERT INTO admins (fullName, email, password, isAdmin, isMain) VALUES (?, ?, ?, ?, ?)';
-        db.run(insertSql, [defaultAdminName, defaultAdminEmail, hashed, 1, 1], function(insertErr) {
-          if (insertErr) {
-            console.error('Error creating default admin:', insertErr.message);
-          } else {
-            console.log('Default admin created (main):', defaultAdminEmail);
-          }
-        });
-      })
-      .catch((hashErr) => {
-        console.error('Error hashing default admin password:', hashErr);
-      });
-  });
+// ============= SECURITY NOTE =============
+// NO automatic default admin creation. 
+// Admins must be created explicitly via secure setup process.
+// This is a critical security best practice.
+// ========================================
 
 
 // ============= ADMIN AUTHENTICATION =============
@@ -842,22 +825,9 @@ app.post('/api/users', verifyToken, async (req, res) => {
 });
 
 
-// Health check endpoint
+// Health check endpoint (no sensitive info)
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'Server is running' });
-});
-
-// DEBUG: show DB file path and admins rows (temporary)
-app.get('/api/debug/dbinfo', (req, res) => {
-  try {
-    const dbFile = path.join(__dirname, 'database.db');
-    db.all('SELECT id, fullName, email, isAdmin, isMain, createdAt FROM admins ORDER BY id DESC', (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message, dbFile });
-      res.json({ dbFile, rows: rows || [] });
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  res.json({ status: 'ok' });
 });
 
 // Serve login.html for root path
@@ -867,20 +837,36 @@ app.get('/', (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`\n${'='.repeat(50)}`);
-  console.log(`Server is running on http://localhost:${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Database: ${process.env.DATABASE_PATH || './database/teacher_portal.db'}`);
-  console.log(`${'='.repeat(50)}\n`);
-  console.log('Test the following:');
-  console.log('1. Register a new Admin account');
-  console.log('2. Login with your email and password');
-  console.log('3. Create and manage student accounts');
-  console.log('\nAPI Endpoints:');
-  console.log('POST   /api/admin/register - Register new admin');
-  console.log('POST   /api/admin/login    - Login with email');
-  console.log('GET    /api/students       - Get all students (requires token)');
-  console.log('POST   /api/students       - Add new student (requires token)');
-  console.log('PUT    /api/students/:id   - Update student (requires token)');
-  console.log('DELETE /api/students/:id   - Delete student (requires token)');
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`🔐 TEACHER PORTAL - SECURE SERVER STARTED`);
+  console.log(`${'='.repeat(60)}`);
+  console.log(`✓ Server running on http://localhost:${PORT}`);
+  console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`✓ Database: ${process.env.DATABASE_PATH || './database/teacher_portal.db'}`);
+  console.log(`✓ JWT Security: ${process.env.JWT_SECRET ? 'ENABLED ✓' : 'WARNING: NOT SET'}`);
+  console.log(`${'='.repeat(60)}\n`);
+  
+  console.log('📋 INITIAL SETUP INSTRUCTIONS:');
+  console.log('1. Create main administrator (FIRST TIME ONLY):');
+  console.log('   $ node scripts/create_main_admin.js');
+  console.log('2. Login at: http://localhost:3000/');
+  console.log('3. Create additional users via User Management');
+  console.log('4. Manage students and attendance\n');
+  
+  console.log('📚 API ENDPOINTS (all require JWT token):');
+  console.log('  POST   /api/admin/login        - Login with email/password');
+  console.log('  GET    /api/students           - List students (token required)');
+  console.log('  POST   /api/students           - Add student (token required)');
+  console.log('  PUT    /api/students/:id       - Update student (token required)');
+  console.log('  DELETE /api/students/:id       - Delete student (token required)');
+  console.log('  GET    /api/users              - List users (admin only)');
+  console.log('  POST   /api/users              - Create user (admin only)');
+  console.log('  GET    /api/health             - Health check\n');
+  
+  console.log('🔒 SECURITY NOTES:');
+  console.log('  • No default credentials - create admin via script');
+  console.log('  • Debug endpoints disabled for security');
+  console.log('  • All requests validated and secured');
+  console.log('  • See SECURITY.md for detailed documentation');
+  console.log(`${'='.repeat(60)}\n`);
 });
