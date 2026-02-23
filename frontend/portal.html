@@ -64,6 +64,43 @@
     </div>
   </section>
 
+  <!-- Edit Student Modal (shared with manage section) -->
+  <div id="editStudentModal" class="modal modal-hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Student</h2>
+        <span class="close" id="closeEditStudentModal">&times;</span>
+      </div>
+      <div id="editStudentMessage" class="message"></div>
+      <form id="studentEditForm">
+        <div class="modal-form-group">
+          <label for="editStudentFirstName">First Name:</label>
+          <input type="text" id="editStudentFirstName" placeholder="First Name" required>
+        </div>
+        <div class="modal-form-group">
+          <label for="editStudentLastName">Last Name:</label>
+          <input type="text" id="editStudentLastName" placeholder="Last Name" required>
+        </div>
+        <div class="modal-form-group">
+          <label for="editStudentContactNo">Contact No:</label>
+          <input type="text" id="editStudentContactNo" placeholder="Contact No." required>
+        </div>
+        <div class="modal-form-group">
+          <label for="editStudentCourse">Course:</label>
+          <input type="text" id="editStudentCourse" placeholder="Course" required>
+        </div>
+        <div class="modal-form-group">
+          <label for="editStudentSection">Section:</label>
+          <input type="text" id="editStudentSection" placeholder="Section" required>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="modal-btn save-btn">Save Changes</button>
+          <button type="button" class="modal-btn cancel-btn" id="cancelEditStudentBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <section id="section-manage" class="section hidden-section">
     <div class="card">
       <h2>Add / Update Student</h2>

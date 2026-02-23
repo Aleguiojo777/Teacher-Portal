@@ -26,24 +26,6 @@ document.addEventListener('DOMContentLoaded', function() {
   
   if(sidebarToggle && sidebar) {
     sidebarToggle.addEventListener('click', function() {
-
-// Setup home date picker to default to today and listen for changes
-document.addEventListener('DOMContentLoaded', function() {
-  const homeDate = document.getElementById('homeReportDate');
-  if(homeDate){
-    const today = new Date().toISOString().split('T')[0];
-    if(!homeDate.value) homeDate.value = today;
-    homeDate.removeEventListener('change', handleHomeDateChange);
-    homeDate.addEventListener('change', handleHomeDateChange);
-  }
-});
-
-function handleHomeDateChange(e){
-  const d = e.target.value;
-  loadAttendanceForDate(d).then(()=>{
-    renderStudents();
-  });
-}
       sidebar.classList.toggle('show');
     });
     
@@ -195,6 +177,14 @@ function updateHomeStatistics(attendanceRecords) {
     }
 }
 
+// Handle home date picker changes
+function handleHomeDateChange(e){
+  const d = e.target.value;
+  loadAttendanceForDate(d).then(()=>{
+    renderStudents();
+  });
+}
+
 
 /* ===========================
    MANAGE STUDENTS (CRUD)
@@ -286,11 +276,21 @@ function renderStudents(){
         <td>${s.section}</td>
         <td>${formatDateTime(s.createdAt)}</td>
         <td>
-          <button class="edit-user" data-id="${s.id}" data-student='${JSON.stringify(s)}'>Edit</button>
+            <button class="edit-user" data-id="${s.id}">Edit</button>
           <button class="delete-user" data-id="${s.id}">Delete</button>
         </td>
       `;
       list.appendChild(row);
+
+      // Attach direct handlers to buttons to avoid delegation/order issues
+      const editBtn = row.querySelector('.edit-user');
+      if(editBtn){
+        editBtn.addEventListener('click', (ev) => { ev.preventDefault(); openEditStudentModal(s); });
+      }
+      const delBtn = row.querySelector('.delete-user');
+      if(delBtn){
+        delBtn.addEventListener('click', (ev) => { ev.preventDefault(); handleStudentAction({ target: delBtn }); });
+      }
     });
 
     // Use event delegation for edit and delete buttons
@@ -303,8 +303,9 @@ function renderStudents(){
 async function handleStudentAction(e) {
   // Support both legacy classes and the newer button classes
   if(e.target.classList.contains('edit-student') || e.target.classList.contains('edit-user')) {
-    const studentData = JSON.parse(e.target.dataset.student);
-    openEditStudentModal(studentData);
+    const id = e.target.dataset.id;
+    const studentData = students.find(s => String(s.id) === String(id));
+    if(studentData) openEditStudentModal(studentData);
   } else if(e.target.classList.contains('delete-student') || e.target.classList.contains('delete-user')) {
     const id = e.target.dataset.id;
     if(!confirm('Delete this student?')) return;
@@ -642,6 +643,15 @@ document.addEventListener('DOMContentLoaded', function() {
     console.warn('[WARN] studentEditForm not found in DOM');
   }
 
+  // Setup home date picker to default to today and listen for changes
+  const homeDate = document.getElementById('homeReportDate');
+  if(homeDate){
+    const today = new Date().toISOString().split('T')[0];
+    if(!homeDate.value) homeDate.value = today;
+    homeDate.removeEventListener('change', handleHomeDateChange);
+    homeDate.addEventListener('change', handleHomeDateChange);
+  }
+
   const closeEditStudentModalBtn = document.getElementById('closeEditStudentModal');
   if(closeEditStudentModalBtn) {
     closeEditStudentModalBtn.removeEventListener('click', closeEditStudentModal);
@@ -671,3 +681,47 @@ function handleEditStudentOutsideClick(e) {
     closeEditStudentModal();
   }
 }
+
+// Ensure critical student edit handlers are attached even if the
+// script is loaded after DOMContentLoaded (some pages load scripts
+// in different orders). This makes the edit modal reliably open.
+(function ensureStudentHandlers(){
+  const attach = () => {
+    const studentEditForm = document.getElementById('studentEditForm');
+    if(studentEditForm) {
+      studentEditForm.removeEventListener('submit', handleEditStudentFormSubmit);
+      studentEditForm.addEventListener('submit', handleEditStudentFormSubmit);
+    }
+
+    const closeEditStudentModalBtn = document.getElementById('closeEditStudentModal');
+    if(closeEditStudentModalBtn) {
+      closeEditStudentModalBtn.removeEventListener('click', closeEditStudentModal);
+      closeEditStudentModalBtn.addEventListener('click', closeEditStudentModal);
+    }
+
+    const cancelEditStudentBtn = document.getElementById('cancelEditStudentBtn');
+    if(cancelEditStudentBtn) {
+      cancelEditStudentBtn.removeEventListener('click', closeEditStudentModal);
+      cancelEditStudentBtn.addEventListener('click', closeEditStudentModal);
+    }
+
+    // Global outside click handler
+    window.removeEventListener('click', handleEditStudentOutsideClick);
+    window.addEventListener('click', handleEditStudentOutsideClick);
+
+    // Ensure the student list has the delegated click handler
+    const studentList = document.getElementById('studentList');
+    if(studentList) {
+      studentList.removeEventListener('click', handleStudentAction);
+      studentList.addEventListener('click', handleStudentAction);
+    }
+
+    // Load students on pages that show the manage list if not loaded yet
+    if(document.getElementById('studentList') && (!students || students.length === 0)){
+      loadStudents();
+    }
+  };
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
+  else attach();
+})();
