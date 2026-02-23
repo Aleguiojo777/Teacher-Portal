@@ -176,7 +176,8 @@
     <li><a href="portal.html">Home</a></li>
     <li><a href="manage.html">Manage Students</a></li>
     <li><a href="attendance.html">Attendance</a></li>
-    <li><a href="attendance-report.html">Attendance Report</a></li>
+    <li><a href="attendance-report.html">Attendance Summary</a></li>
+    <li id="userMgmtNav" class="hidden"><a href="user-management.html">User Management</a></li>
     <li id="logoutNav"><a href="#" id="logoutLink">Logout</a></li>
   </ul>
 </nav>
@@ -266,6 +267,18 @@
         if(!sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
           sidebar.classList.remove('show');
         }
+      });
+    }
+
+    // Apply user visibility (show/hide User Management and Logout based on role)
+    applyUserVisibility();
+
+    // Setup logout handler
+    const logoutLink = document.getElementById('logoutLink');
+    if(logoutLink) {
+      logoutLink.addEventListener('click', (e) => { 
+        e.preventDefault(); 
+        logout(); 
       });
     }
 
