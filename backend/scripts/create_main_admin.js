@@ -10,7 +10,7 @@
  */
 
 const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const path = require('path');
 const readline = require('readline');
 

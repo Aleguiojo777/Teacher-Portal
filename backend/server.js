@@ -1,14 +1,23 @@
 const express = require('express');
 const cors = require('cors');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 
 // Load environment variables
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Parse JSON bodies
+app.use(express.json());
+
+// Basic security headers
+app.use(helmet());
 
 // ============= ENVIRONMENT VALIDATION =============
 function validateEnvironment() {
@@ -207,8 +216,15 @@ app.post('/api/admin/register', verifyToken, async (req, res) => {
   }
 });
 
+// Rate limiter for login to mitigate brute-force
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 requests per windowMs
+  message: { error: 'Too many login attempts from this IP, please try again later.' }
+});
+
 // Admin Login endpoint
-app.post('/api/admin/login', async (req, res) => {
+app.post('/api/admin/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -259,27 +275,32 @@ app.post('/api/admin/login', async (req, res) => {
   }
 });
 
-// Token generation helper (simple JWT-like token)
+// Token generation helper using signed JWT
 function generateToken(adminId) {
-  return Buffer.from(JSON.stringify({ adminId, timestamp: Date.now() })).toString('base64');
+  const payload = { adminId };
+  const secret = process.env.JWT_SECRET || 'change_this_to_a_secure_random_string_in_production_min_32_chars';
+  return jwt.sign(payload, secret, { expiresIn: '8h' });
 }
 
 // ============= MIDDLEWARE =============
 
-// Middleware to verify admin token
+// Middleware to verify admin token using JWT
 function verifyToken(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1];
-  
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : auth;
+
   if (!token) {
     return res.status(401).json({ error: 'Unauthorized: No token provided' });
   }
 
   try {
-    const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+    const secret = process.env.JWT_SECRET || 'change_this_to_a_secure_random_string_in_production_min_32_chars';
+    const decoded = jwt.verify(token, secret);
     req.adminId = decoded.adminId;
     next();
   } catch (error) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    console.error('[WARN] JWT verification failed:', error && error.message);
+    return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
   }
 }
 
