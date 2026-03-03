@@ -190,18 +190,79 @@ function handleHomeDateChange(e){
    MANAGE STUDENTS (CRUD)
 =========================== */
 
+// Normalize various common time inputs to "hh:mm AM/PM"
+function normalizeTime(input) {
+  if (!input || String(input).trim() === '') return null;
+  const s = String(input).trim();
+
+  // 1) Explicit AM/PM with or without colon: "9am", "9:00am", "09:00 AM"
+  const ampmRegex = /^\s*(\d{1,2})(?::([0-5]\d))?\s*([AaPp][Mm])\s*$/;
+  let m = s.match(ampmRegex);
+  if (m) {
+    let h = parseInt(m[1], 10);
+    const mm = m[2] ? m[2] : '00';
+    if (h < 1 || h > 12) return null;
+    const period = m[3].toUpperCase();
+    const hh = (h < 10 ? '0' + h : String(h));
+    return `${hh}:${mm} ${period}`;
+  }
+
+  // 2) 24-hour or plain hh:mm -> convert to 12-hour with AM/PM
+  const hmRegex = /^\s*(\d{1,2}):(\d{2})\s*$/;
+  m = s.match(hmRegex);
+  if (m) {
+    let h = parseInt(m[1], 10);
+    const mm = m[2];
+    if (h < 0 || h > 23) return null;
+    const period = h >= 12 ? 'PM' : 'AM';
+    let h12 = h % 12;
+    if (h12 === 0) h12 = 12;
+    const hh = (h12 < 10 ? '0' + h12 : String(h12));
+    return `${hh}:${mm} ${period}`;
+  }
+
+  // 3) Bare hour like "9" -> assume on-the-hour, treat as 24-hour hour then convert
+  const hOnly = /^\s*(\d{1,2})\s*$/;
+  m = s.match(hOnly);
+  if (m) {
+    let h = parseInt(m[1], 10);
+    if (h < 0 || h > 23) return null;
+    const period = h >= 12 ? 'PM' : 'AM';
+    let h12 = h % 12;
+    if (h12 === 0) h12 = 12;
+    const hh = (h12 < 10 ? '0' + h12 : String(h12));
+    return `${hh}:00 ${period}`;
+  }
+
+  return null;
+}
+
+
 async function saveStudent(){
     const firstName = document.getElementById("firstName").value;
     const lastName = document.getElementById("lastName").value;
     const contactNo = document.getElementById("contactNo").value;
     const course = document.getElementById("course").value;
     const section = document.getElementById("section").value;
+    const startTime = document.getElementById("startTime").value;
+    const endTime = document.getElementById("endTime").value;
     const btn = document.getElementById("studentBtn");
 
-    if(!firstName || !lastName || !contactNo || !course || !section){
+  if(!firstName || !lastName || !contactNo || !course || !section || !startTime || !endTime){
         alert("Fill all fields");
         return;
     }
+  // Normalize and validate times (accept common inputs like "9:00", "9am", "13:00")
+  const normalizedStart = normalizeTime(startTime);
+  const normalizedEnd = normalizeTime(endTime);
+  if(!normalizedStart || !normalizedEnd){
+    alert('Start and End times must be in format hh:mm AM or hh:mm PM (e.g. 09:00 AM)');
+    return;
+  }
+
+  // write normalized values back to inputs so users see the canonical format
+  document.getElementById('startTime').value = normalizedStart;
+  document.getElementById('endTime').value = normalizedEnd;
 
     try {
         let response;
@@ -216,11 +277,13 @@ async function saveStudent(){
                     'Authorization': 'Bearer ' + token
                 },
                 body: JSON.stringify({
-                    firstName,
-                    lastName,
-                    contactNo,
-                    course,
-                    section
+                  firstName,
+                  lastName,
+                  contactNo,
+                  course,
+                  section,
+                  startTime: normalizedStart,
+                  endTime: normalizedEnd
                 })
             });
         } else {
@@ -233,11 +296,13 @@ async function saveStudent(){
                     'Authorization': 'Bearer ' + token
                 },
                 body: JSON.stringify({
-                    firstName,
-                    lastName,
-                    contactNo,
-                    course,
-                    section
+                  firstName,
+                  lastName,
+                  contactNo,
+                  course,
+                  section,
+                  startTime,
+                  endTime
                 })
             });
         }
@@ -274,6 +339,8 @@ function renderStudents(){
         <td>${s.contactNo}</td>
         <td>${s.course}</td>
         <td>${s.section}</td>
+        <td>${s.startTime || ''}</td>
+        <td>${s.endTime || ''}</td>
         <td>${formatDateTime(s.createdAt)}</td>
         <td>
             <button class="edit-user" data-id="${s.id}">Edit</button>
@@ -335,6 +402,8 @@ function openEditStudentModal(studentData) {
   document.getElementById('editStudentContactNo').value = studentData.contactNo;
   document.getElementById('editStudentCourse').value = studentData.course;
   document.getElementById('editStudentSection').value = studentData.section;
+  document.getElementById('editStudentStartTime').value = studentData.startTime || '';
+  document.getElementById('editStudentEndTime').value = studentData.endTime || '';
   document.getElementById('editStudentMessage').textContent = '';
   document.getElementById('editStudentModal').classList.remove('modal-hidden');
 }
@@ -371,25 +440,41 @@ function handleEditStudentFormSubmit(e) {
   const contactNo = document.getElementById('editStudentContactNo').value.trim();
   const course = document.getElementById('editStudentCourse').value.trim();
   const section = document.getElementById('editStudentSection').value.trim();
+  const startTime = document.getElementById('editStudentStartTime').value.trim();
+  const endTime = document.getElementById('editStudentEndTime').value.trim();
   const token = localStorage.getItem('token');
 
   if(!token) {
     setEditStudentMessage('Unauthorized: Please login', 'error');
     return;
   }
-  if(!firstName || !lastName || !contactNo || !course || !section) {
+  if(!firstName || !lastName || !contactNo || !course || !section || !startTime || !endTime) {
     setEditStudentMessage('All fields are required', 'error');
     return;
   }
 
-  submitEditStudentForm(firstName, lastName, contactNo, course, section, token, currentEditingStudentId);
+  // Normalize times for edit form
+  const normalizedStart = normalizeTime(startTime);
+  const normalizedEnd = normalizeTime(endTime);
+  if(!normalizedStart || !normalizedEnd){
+    setEditStudentMessage('Start and End times must be in format hh:mm AM/PM', 'error');
+    return;
+  }
+
+  // update inputs to canonical form so user sees normalized value
+  document.getElementById('editStudentStartTime').value = normalizedStart;
+  document.getElementById('editStudentEndTime').value = normalizedEnd;
+
+  submitEditStudentForm(firstName, lastName, contactNo, course, section, token, currentEditingStudentId, normalizedStart, normalizedEnd);
 }
 
 async function submitEditStudentForm(firstName, lastName, contactNo, course, section, token, studentId) {
   try {
     setEditStudentMessage('Updating student...', 'loading');
     
-    const body = { firstName, lastName, contactNo, course, section };
+    const startTime = document.getElementById('editStudentStartTime').value.trim();
+    const endTime = document.getElementById('editStudentEndTime').value.trim();
+    const body = { firstName, lastName, contactNo, course, section, startTime, endTime };
 
     const res = await fetch(`${API_BASE}/students/${studentId}`, {
       method: 'PUT',
@@ -423,6 +508,8 @@ function clearForm(){
     document.getElementById("contactNo").value = "";
     document.getElementById("course").value = "";
     document.getElementById("section").value = "";
+  document.getElementById("startTime").value = "";
+  document.getElementById("endTime").value = "";
 
     editingId = null;
     document.getElementById("studentBtn").textContent = "Add Student";

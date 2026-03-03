@@ -134,6 +134,8 @@ function initializeDatabase() {
       contactNo TEXT NOT NULL,
       course TEXT NOT NULL,
       section TEXT NOT NULL,
+      startTime TEXT,
+      endTime TEXT,
       createdBy INTEGER,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(createdBy) REFERENCES admins(id)
@@ -143,6 +145,35 @@ function initializeDatabase() {
       console.error('Error creating students table:', err.message);
     } else {
       console.log('Students table ready');
+    }
+  });
+
+  // Ensure legacy databases have `startTime` and `endTime` columns (and migrate any existing `timeOfClass` values)
+  db.all("PRAGMA table_info(students)", (err, cols) => {
+    if (err) return;
+    const hasStart = cols && cols.some(c => c.name === 'startTime');
+    const hasEnd = cols && cols.some(c => c.name === 'endTime');
+    const hasTimeOfClass = cols && cols.some(c => c.name === 'timeOfClass');
+
+    if (!hasStart) {
+      db.run('ALTER TABLE students ADD COLUMN startTime TEXT', (alterErr) => {
+        if (alterErr) console.error('Error adding startTime column:', alterErr.message);
+        else console.log('Migrated students table: added startTime column');
+      });
+    }
+    if (!hasEnd) {
+      db.run('ALTER TABLE students ADD COLUMN endTime TEXT', (alterErr) => {
+        if (alterErr) console.error('Error adding endTime column:', alterErr.message);
+        else console.log('Migrated students table: added endTime column');
+      });
+    }
+
+    // If older DB used single `timeOfClass`, copy it into `startTime` to preserve data
+    if (hasTimeOfClass && (!hasStart || !hasEnd)) {
+      db.run('UPDATE students SET startTime = timeOfClass WHERE (startTime IS NULL OR startTime = "")', (updErr) => {
+        if (updErr) console.error('Error migrating timeOfClass -> startTime:', updErr.message);
+        else console.log('Migrated existing timeOfClass values into startTime');
+      });
     }
   });
 
@@ -429,15 +460,21 @@ app.get('/api/students/:id', verifyToken, (req, res) => {
 
 // POST - Add new student
 app.post('/api/students', verifyToken, (req, res) => {
-  const { firstName, lastName, contactNo, course, section } = req.body;
+  const { firstName, lastName, contactNo, course, section, startTime, endTime } = req.body;
   const createdBy = req.adminId;
 
-  if (!firstName || !lastName || !contactNo || !course || !section) {
+  if (!firstName || !lastName || !contactNo || !course || !section || !startTime || !endTime) {
     return res.status(400).json({ error: 'All fields are required' });
   }
 
-  const sql = 'INSERT INTO students (firstName, lastName, contactNo, course, section, createdBy) VALUES (?, ?, ?, ?, ?, ?)';
-  db.run(sql, [firstName, lastName, contactNo, course, section, createdBy], function(err) {
+  // Validate start/end time format: hh:mm AM/PM
+  const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?[AaPp][Mm]$/;
+  if (!timeRegex.test(String(startTime).trim()) || !timeRegex.test(String(endTime).trim())) {
+    return res.status(400).json({ error: 'Invalid time format. Use hh:mm AM or hh:mm PM' });
+  }
+
+  const sql = 'INSERT INTO students (firstName, lastName, contactNo, course, section, startTime, endTime, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+  db.run(sql, [firstName, lastName, contactNo, course, section, startTime.trim(), endTime.trim(), createdBy], function(err) {
     if (err) {
       res.status(500).json({ error: err.message });
     } else {
@@ -448,6 +485,8 @@ app.post('/api/students', verifyToken, (req, res) => {
         contactNo,
         course,
         section,
+        startTime,
+        endTime,
         createdBy,
         message: 'Student added successfully'
       });
@@ -458,10 +497,16 @@ app.post('/api/students', verifyToken, (req, res) => {
 // PUT - Update student
 app.put('/api/students/:id', verifyToken, (req, res) => {
   const { id } = req.params;
-  const { firstName, lastName, contactNo, course, section } = req.body;
+  const { firstName, lastName, contactNo, course, section, startTime, endTime } = req.body;
 
-  if (!firstName || !lastName || !contactNo || !course || !section) {
+  if (!firstName || !lastName || !contactNo || !course || !section || !startTime || !endTime) {
     return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  // Validate start/end time format
+  const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?[AaPp][Mm]$/;
+  if (!timeRegex.test(String(startTime).trim()) || !timeRegex.test(String(endTime).trim())) {
+    return res.status(400).json({ error: 'Invalid time format. Use hh:mm AM or hh:mm PM' });
   }
 
   // Check if user is admin or teacher
@@ -492,8 +537,8 @@ app.put('/api/students/:id', verifyToken, (req, res) => {
         return res.status(404).json({ error: 'Student not found or access denied' });
       }
 
-      const sql = 'UPDATE students SET firstName = ?, lastName = ?, contactNo = ?, course = ?, section = ? WHERE id = ?';
-      db.run(sql, [firstName, lastName, contactNo, course, section, id], function(err) {
+      const sql = 'UPDATE students SET firstName = ?, lastName = ?, contactNo = ?, course = ?, section = ?, startTime = ?, endTime = ? WHERE id = ?';
+      db.run(sql, [firstName, lastName, contactNo, course, section, startTime.trim(), endTime.trim(), id], function(err) {
         if (err) {
           res.status(500).json({ error: err.message });
         } else if (this.changes === 0) {
@@ -506,6 +551,8 @@ app.put('/api/students/:id', verifyToken, (req, res) => {
             contactNo,
             course,
             section,
+            startTime,
+            endTime,
             message: 'Student updated successfully'
           });
         }
