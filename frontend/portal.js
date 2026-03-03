@@ -566,6 +566,7 @@ function populateSectionDropdowns(){
             opt.dataset.sectionId = sec.id;
             opt.dataset.course = sec.course;
             opt.dataset.sectionName = sec.sectionName;
+            opt.dataset.subject = sec.subject;
             opt.dataset.scheduleTime = sec.scheduleTime;
             select.appendChild(opt);
         });
@@ -612,6 +613,7 @@ function fillStudentDetailsFromSection(dropdownId){
     const selectedOption = dropdown.options[dropdown.selectedIndex];
     const course = selectedOption.dataset.course;
     const sectionName = selectedOption.dataset.sectionName;
+    const subject = selectedOption.dataset.subject;
     const scheduleTime = selectedOption.dataset.scheduleTime;
     
     // Parse schedule time into start and end times
@@ -628,11 +630,13 @@ function fillStudentDetailsFromSection(dropdownId){
     if(dropdownId === 'sectionDropdown') {
         document.getElementById('course').value = course;
         document.getElementById('section').value = sectionName;
+        document.getElementById('subject').value = subject;
         document.getElementById('startTime').value = startTime;
         document.getElementById('endTime').value = endTime;
     } else if(dropdownId === 'editSectionDropdown') {
         document.getElementById('editStudentCourse').value = course;
         document.getElementById('editStudentSection').value = sectionName;
+        document.getElementById('editStudentSubject').value = subject;
         document.getElementById('editStudentStartTime').value = startTime;
         document.getElementById('editStudentEndTime').value = endTime;
     }
