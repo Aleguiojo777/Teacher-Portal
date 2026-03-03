@@ -288,11 +288,14 @@ function applyUserVisibility(){
   const storedAdmin = JSON.parse(localStorage.getItem('admin') || 'null');
   const userMgmtNav = document.getElementById('userMgmtNav');
   
-  if(storedAdmin && Number(storedAdmin.isAdmin) === 1) {
-    if(userMgmtNav) userMgmtNav.classList.remove('hidden');
-  } else {
-    if(userMgmtNav) userMgmtNav.classList.add('hidden');
+  if(!storedAdmin || Number(storedAdmin.isAdmin) !== 1) {
+    // Only admins can access this page
+    alert('Access Denied: Only administrators can manage sections.');
+    window.location.href = 'portal.html';
+    return;
   }
+  
+  if(userMgmtNav) userMgmtNav.classList.remove('hidden');
 }
 
 applyUserVisibility();

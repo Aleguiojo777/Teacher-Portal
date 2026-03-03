@@ -631,13 +631,33 @@ app.delete('/api/students/:id', verifyToken, (req, res) => {
 
 // ============= SECTION MANAGEMENT ENDPOINTS =============
 
-// GET - All sections (only for current user)
+// GET - All sections (admins see their own, teachers see all sections)
 app.get('/api/sections', verifyToken, (req, res) => {
-  db.all('SELECT * FROM sections WHERE createdBy = ? ORDER BY course, sectionName', [req.adminId], (err, rows) => {
+  // Check if user is admin or teacher
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    res.json(rows || []);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const isAdmin = Number(user.isAdmin) === 1;
+    
+    // Admins see only their own sections, teachers see all sections
+    const query = isAdmin
+      ? 'SELECT * FROM sections WHERE createdBy = ? ORDER BY course, sectionName'
+      : 'SELECT * FROM sections ORDER BY course, sectionName';
+    
+    const params = isAdmin ? [req.adminId] : [];
+    
+    db.all(query, params, (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(rows || []);
+    });
   });
 });
 
@@ -655,74 +675,122 @@ app.get('/api/sections/:id', verifyToken, (req, res) => {
   });
 });
 
-// POST - Create new section
+// POST - Create new section (ADMIN ONLY)
 app.post('/api/sections', verifyToken, (req, res) => {
-  const { sectionName, course, subject, scheduleTime, scheduleDay } = req.body;
-  const createdBy = req.adminId;
-
-  if (!sectionName || !course || !subject || !scheduleTime || !scheduleDay) {
-    return res.status(400).json({ error: 'All fields are required' });
-  }
-
-  const sql = 'INSERT INTO sections (sectionName, course, subject, scheduleTime, scheduleDay, createdBy) VALUES (?, ?, ?, ?, ?, ?)';
-  db.run(sql, [sectionName, course, subject, scheduleTime, scheduleDay, createdBy], function(err) {
+  // Check if user is admin
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    res.json({
-      id: this.lastID,
-      sectionName,
-      course,
-      subject,
-      scheduleTime,
-      scheduleDay,
-      createdBy,
-      message: 'Section created successfully'
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const isAdmin = Number(user.isAdmin) === 1;
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Access denied: Only administrators can create sections' });
+    }
+
+    const { sectionName, course, subject, scheduleTime, scheduleDay } = req.body;
+    const createdBy = req.adminId;
+
+    if (!sectionName || !course || !subject || !scheduleTime || !scheduleDay) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    const sql = 'INSERT INTO sections (sectionName, course, subject, scheduleTime, scheduleDay, createdBy) VALUES (?, ?, ?, ?, ?, ?)';
+    db.run(sql, [sectionName, course, subject, scheduleTime, scheduleDay, createdBy], function(err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.json({
+        id: this.lastID,
+        sectionName,
+        course,
+        subject,
+        scheduleTime,
+        scheduleDay,
+        createdBy,
+        message: 'Section created successfully'
+      });
     });
   });
 });
 
-// PUT - Update section (verify ownership)
+// PUT - Update section (ADMIN ONLY)
 app.put('/api/sections/:id', verifyToken, (req, res) => {
-  const { id } = req.params;
-  const { sectionName, course, subject, scheduleTime, scheduleDay } = req.body;
-
-  if (!sectionName || !course || !subject || !scheduleTime || !scheduleDay) {
-    return res.status(400).json({ error: 'All fields are required' });
-  }
-
-  const sql = 'UPDATE sections SET sectionName = ?, course = ?, subject = ?, scheduleTime = ?, scheduleDay = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND createdBy = ?';
-  db.run(sql, [sectionName, course, subject, scheduleTime, scheduleDay, id, req.adminId], function(err) {
+  // Check if user is admin
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    if (this.changes === 0) {
-      return res.status(404).json({ error: 'Section not found or access denied' });
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
     }
-    res.json({
-      id,
-      sectionName,
-      course,
-      subject,
-      scheduleTime,
-      scheduleDay,
-      message: 'Section updated successfully'
+
+    const isAdmin = Number(user.isAdmin) === 1;
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Access denied: Only administrators can update sections' });
+    }
+
+    const { id } = req.params;
+    const { sectionName, course, subject, scheduleTime, scheduleDay } = req.body;
+
+    if (!sectionName || !course || !subject || !scheduleTime || !scheduleDay) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    const sql = 'UPDATE sections SET sectionName = ?, course = ?, subject = ?, scheduleTime = ?, scheduleDay = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND createdBy = ?';
+    db.run(sql, [sectionName, course, subject, scheduleTime, scheduleDay, id, req.adminId], function(err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Section not found or access denied' });
+      }
+      res.json({
+        id,
+        sectionName,
+        course,
+        subject,
+        scheduleTime,
+        scheduleDay,
+        message: 'Section updated successfully'
+      });
     });
   });
 });
 
-// DELETE - Remove section (verify ownership)
+// DELETE - Remove section (ADMIN ONLY)
 app.delete('/api/sections/:id', verifyToken, (req, res) => {
-  const { id } = req.params;
-
-  db.run('DELETE FROM sections WHERE id = ? AND createdBy = ?', [id, req.adminId], function(err) {
+  // Check if user is admin
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    if (this.changes === 0) {
-      return res.status(404).json({ error: 'Section not found or access denied' });
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
     }
-    res.json({ message: 'Section deleted successfully' });
+
+    const isAdmin = Number(user.isAdmin) === 1;
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Access denied: Only administrators can delete sections' });
+    }
+
+    const { id } = req.params;
+
+    db.run('DELETE FROM sections WHERE id = ? AND createdBy = ?', [id, req.adminId], function(err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Section not found or access denied' });
+      }
+      res.json({ message: 'Section deleted successfully' });
+    });
   });
 });
 

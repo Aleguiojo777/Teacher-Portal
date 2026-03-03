@@ -754,6 +754,7 @@ function toggleStatus(id){
 function applyUserVisibility(){
     const storedAdmin = JSON.parse(localStorage.getItem('admin') || 'null');
     const userMgmtNav = document.getElementById('userMgmtNav');
+    const manageSectionsNav = document.getElementById('manageSectionsNav');
     const welcomeTitle = document.getElementById('welcomeTitle');
     const welcomeText = document.getElementById('welcomeText');
     const logoutNav = document.getElementById('logoutNav');
@@ -763,16 +764,35 @@ function applyUserVisibility(){
         const role = Number(storedAdmin.isAdmin) === 1 ? 'Administrator' : 'Teacher';
         if(welcomeTitle) welcomeTitle.textContent = `Welcome ${storedAdmin.fullName || '' } 👋`;
         if(welcomeText) welcomeText.textContent = `Signed in as ${role}`;
-        if(userMgmtNav) userMgmtNav.style.display = Number(storedAdmin.isAdmin) === 1 ? 'list-item' : 'none';
-        if(logoutNav) logoutNav.style.display = 'list-item';
+        const isAdmin = Number(storedAdmin.isAdmin) === 1;
+        
+        // Show/hide admin-only features
+        if(userMgmtNav) {
+            if(isAdmin) {
+                userMgmtNav.classList.remove('hidden');
+            } else {
+                userMgmtNav.classList.add('hidden');
+            }
+        }
+        
+        if(manageSectionsNav) {
+            if(isAdmin) {
+                manageSectionsNav.classList.remove('hidden');
+            } else {
+                manageSectionsNav.classList.add('hidden');
+            }
+        }
+        
+        if(logoutNav) logoutNav.classList.remove('hidden');
         if(logoutLink) {
             logoutLink.addEventListener('click', (e) => { e.preventDefault(); logout(); });
         }
     } else {
         if(welcomeTitle) welcomeTitle.textContent = 'Welcome';
         if(welcomeText) welcomeText.textContent = 'Please login.';
-        if(userMgmtNav) userMgmtNav.style.display = 'none';
-        if(logoutNav) logoutNav.style.display = 'none';
+        if(userMgmtNav) userMgmtNav.classList.add('hidden');
+        if(manageSectionsNav) manageSectionsNav.classList.add('hidden');
+        if(logoutNav) logoutNav.classList.add('hidden');
     }
 }
 
