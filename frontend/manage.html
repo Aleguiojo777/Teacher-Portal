@@ -21,6 +21,7 @@
   <ul>
     <li><a href="portal.html">Home</a></li>
     <li><a href="manage.html">Manage Students</a></li>
+    <li><a href="section-management.html">Manage Sections</a></li>
     <li><a href="attendance.html">Attendance</a></li>
     <li><a href="attendance-report.html">Attendance Summary</a></li>
     <li id="userMgmtNav" class="hidden"><a href="user-management.html">User Management</a></li>
@@ -53,20 +54,26 @@
         <input type="text" id="editStudentContactNo" placeholder="Contact No." required>
       </div>
       <div class="modal-form-group">
+        <label for="editSectionDropdown">Section:</label>
+        <select id="editSectionDropdown" required>
+          <option value="">Select Section</option>
+        </select>
+      </div>
+      <div class="modal-form-group">
         <label for="editStudentCourse">Course:</label>
-        <input type="text" id="editStudentCourse" placeholder="Course" required>
+        <input type="text" id="editStudentCourse" placeholder="Course" readonly>
       </div>
       <div class="modal-form-group">
         <label for="editStudentSection">Section:</label>
-        <input type="text" id="editStudentSection" placeholder="Section" required>
+        <input type="text" id="editStudentSection" placeholder="Section" readonly>
       </div>
       <div class="modal-form-group">
         <label for="editStudentStartTime">Start Time:</label>
-        <input type="text" id="editStudentStartTime" placeholder="e.g. 09:00 AM" pattern="^(0?[1-9]|1[0-2]):[0-5][0-9]\s?[AaPp][Mm]$" title="Format: hh:mm AM or hh:mm PM" required>
+        <input type="text" id="editStudentStartTime" placeholder="Start Time" readonly>
       </div>
       <div class="modal-form-group">
         <label for="editStudentEndTime">End Time:</label>
-        <input type="text" id="editStudentEndTime" placeholder="e.g. 10:30 AM" pattern="^(0?[1-9]|1[0-2]):[0-5][0-9]\s?[AaPp][Mm]$" title="Format: hh:mm AM or hh:mm PM" required>
+        <input type="text" id="editStudentEndTime" placeholder="End Time" readonly>
       </div>
       <div class="modal-actions">
         <button type="submit" class="modal-btn save-btn">Save Changes</button>
@@ -83,10 +90,13 @@
   <input id="firstName" placeholder="First Name" required>
   <input id="lastName" placeholder="Last Name" required>
   <input id="contactNo" placeholder="Contact No." required>
-  <input id="course" placeholder="Course" required>
-  <input id="section" placeholder="Section" required>
-  <input id="startTime" placeholder="Start Time (e.g. 09:00 AM)" pattern="^(0?[1-9]|1[0-2]):[0-5][0-9]\s?[AaPp][Mm]$" title="Format: hh:mm AM or hh:mm PM" required>
-  <input id="endTime" placeholder="End Time (e.g. 10:30 AM)" pattern="^(0?[1-9]|1[0-2]):[0-5][0-9]\s?[AaPp][Mm]$" title="Format: hh:mm AM or hh:mm PM" required>
+  <select id="sectionDropdown" title="Section" required>
+    <option value="">Select Section</option>
+  </select>
+  <input id="course" placeholder="Course" readonly>
+  <input id="section" placeholder="Section" readonly>
+  <input id="startTime" placeholder="Start Time" readonly>
+  <input id="endTime" placeholder="End Time" readonly>
 </div>
 
 <button id="studentBtn" onclick="saveStudent()">Add Student</button>

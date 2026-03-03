@@ -3,6 +3,7 @@
 =========================== */
 
 let students = [];
+let sections = [];
 let editingId = null;
 // Compute API base once globally so multiple pages/scripts don't redeclare it
 window.API_BASE = window.API_BASE || (function(){
@@ -405,6 +406,16 @@ function openEditStudentModal(studentData) {
   document.getElementById('editStudentStartTime').value = studentData.startTime || '';
   document.getElementById('editStudentEndTime').value = studentData.endTime || '';
   document.getElementById('editStudentMessage').textContent = '';
+  
+  // Find and select the matching section in the dropdown
+  const editSectionDropdown = document.getElementById('editSectionDropdown');
+  if(editSectionDropdown && studentData.course && studentData.section) {
+    const matchingSection = sections.find(s => s.course === studentData.course && s.sectionName === studentData.section);
+    if(matchingSection) {
+      editSectionDropdown.value = matchingSection.id;
+    }
+  }
+  
   document.getElementById('editStudentModal').classList.remove('modal-hidden');
 }
 
@@ -521,19 +532,110 @@ function clearForm(){
 =========================== */
 
 function loadSections(){
-    const select = document.getElementById("attendanceSection");
-    if(!select) return;
+    const token = localStorage.getItem('token');
+    
+    fetch(`${API_BASE}/sections`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(r => r.json())
+    .then(data => {
+        sections = data || [];
+        populateSectionDropdowns();
+    })
+    .catch(e => console.error('Error loading sections:', e));
+}
 
-    select.innerHTML = `<option value="">Select Section</option>`;
+function populateSectionDropdowns(){
+    const selects = [
+        document.getElementById('sectionDropdown'),
+        document.getElementById('editSectionDropdown'),
+        document.getElementById('attendanceSection')
+    ];
 
-    const sections = [...new Set(students.map(s => s.section))];
-
-    sections.forEach(sec=>{
-        const opt = document.createElement("option");
-        opt.value = sec;
-        opt.textContent = sec;
-        select.appendChild(opt);
+    selects.forEach(select => {
+        if(!select) return;
+        
+        const selectedValue = select.value;
+        select.innerHTML = `<option value="">Select Section</option>`;
+        
+        sections.forEach(sec => {
+            const opt = document.createElement('option');
+            // Use sectionName as value since students are stored with section name
+            opt.value = sec.sectionName;
+            opt.textContent = `${sec.sectionName} - ${sec.course} (${sec.scheduleDay})`;
+            opt.dataset.sectionId = sec.id;
+            opt.dataset.course = sec.course;
+            opt.dataset.sectionName = sec.sectionName;
+            opt.dataset.scheduleTime = sec.scheduleTime;
+            select.appendChild(opt);
+        });
+        
+        // Restore previous selection or select the first section
+        if(selectedValue) {
+            select.value = selectedValue;
+        } else if(sections.length > 0) {
+            // Auto-select first section if none was previously selected
+            select.value = sections[0].sectionName;
+        }
+        
+        // Trigger change event to populate dependent fields
+        select.dispatchEvent(new Event('change'));
     });
+
+    // After populating, call loadAttendance if on attendance page
+    const attendanceSelect = document.getElementById('attendanceSection');
+    if(attendanceSelect && attendanceSelect.value) {
+        loadAttendance();
+    }
+
+    // Add change event listeners
+    const mainSectionDropdown = document.getElementById('sectionDropdown');
+    const editSectionDropdown = document.getElementById('editSectionDropdown');
+    
+    if(mainSectionDropdown) {
+        mainSectionDropdown.addEventListener('change', () => {
+            fillStudentDetailsFromSection('sectionDropdown');
+        });
+    }
+    
+    if(editSectionDropdown) {
+        editSectionDropdown.addEventListener('change', () => {
+            fillStudentDetailsFromSection('editSectionDropdown');
+        });
+    }
+}
+
+function fillStudentDetailsFromSection(dropdownId){
+    const dropdown = document.getElementById(dropdownId);
+    if(!dropdown || !dropdown.value) return;
+
+    const selectedOption = dropdown.options[dropdown.selectedIndex];
+    const course = selectedOption.dataset.course;
+    const sectionName = selectedOption.dataset.sectionName;
+    const scheduleTime = selectedOption.dataset.scheduleTime;
+    
+    // Parse schedule time into start and end times
+    // Expected format: "09:00 AM - 10:30 AM" or "09:00-10:30"
+    let startTime = '', endTime = '';
+    if(scheduleTime) {
+        const parts = scheduleTime.split('-').map(p => p.trim());
+        if(parts.length === 2) {
+            startTime = parts[0];
+            endTime = parts[1];
+        }
+    }
+
+    if(dropdownId === 'sectionDropdown') {
+        document.getElementById('course').value = course;
+        document.getElementById('section').value = sectionName;
+        document.getElementById('startTime').value = startTime;
+        document.getElementById('endTime').value = endTime;
+    } else if(dropdownId === 'editSectionDropdown') {
+        document.getElementById('editStudentCourse').value = course;
+        document.getElementById('editStudentSection').value = sectionName;
+        document.getElementById('editStudentStartTime').value = startTime;
+        document.getElementById('editStudentEndTime').value = endTime;
+    }
 }
 
 function loadAttendance(){
@@ -688,12 +790,22 @@ function showSection(name){
     sections.forEach(s => {
         const el = document.getElementById('section-' + s);
         if(!el) return;
-        el.style.display = (s === name) ? '' : 'none';
+        if(s === name) {
+            el.classList.remove('hidden-section');
+            el.style.display = '';
+        } else {
+            el.classList.add('hidden-section');
+            el.style.display = 'none';
+        }
     });
 
     // Update active nav link
     document.querySelectorAll('.nav-link').forEach(link => {
-        if(link.dataset.section === name) link.classList.add('active'); else link.classList.remove('active');
+        if(link.dataset.section === name) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+        }
     });
 
     // Load data for specific sections
@@ -712,12 +824,34 @@ document.addEventListener('DOMContentLoaded', function() {
     loadStudents();
   }
 
-  // Wire nav links
+  // Wire nav links - use event delegation for reliability
+  const sidebar = document.getElementById('sidebar');
+  if(sidebar) {
+    sidebar.addEventListener('click', (e) => {
+      if(e.target.classList.contains('nav-link')) {
+        // Only prevent default if this is an internal section navigation (has data-section)
+        if(e.target.dataset.section) {
+          e.preventDefault();
+          e.stopPropagation();
+          const sec = e.target.dataset.section || 'home';
+          showSection(sec);
+        }
+        // Otherwise let the link navigate normally (for external page links like section-management.html)
+      }
+    });
+  }
+  
+  // Also attach direct listeners to all nav-links for backwards compatibility
   document.querySelectorAll('.nav-link').forEach(link => {
       link.addEventListener('click', (e) => {
-          e.preventDefault();
-          const sec = link.dataset.section || 'home';
-          showSection(sec);
+          // Only handle internal section navigation (must have data-section attribute)
+          if(link.dataset.section) {
+              e.preventDefault();
+              e.stopPropagation();
+              const sec = link.dataset.section || 'home';
+              showSection(sec);
+          }
+          // Otherwise let the link navigate normally
       });
   });
 

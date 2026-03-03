@@ -196,6 +196,27 @@ function initializeDatabase() {
       console.log('Attendance table ready');
     }
   });
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS sections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sectionName TEXT NOT NULL,
+      course TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      scheduleTime TEXT NOT NULL,
+      scheduleDay TEXT NOT NULL,
+      createdBy INTEGER,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(createdBy) REFERENCES admins(id)
+    )
+  `, (err) => {
+    if (err) {
+      console.error('Error creating sections table:', err.message);
+    } else {
+      console.log('Sections table ready');
+    }
+  });
 }
 
 // ============= SECURITY NOTE =============
@@ -603,6 +624,105 @@ app.delete('/api/students/:id', verifyToken, (req, res) => {
         }
       });
     });
+  });
+});
+
+// ===================================================
+
+// ============= SECTION MANAGEMENT ENDPOINTS =============
+
+// GET - All sections (only for current user)
+app.get('/api/sections', verifyToken, (req, res) => {
+  db.all('SELECT * FROM sections WHERE createdBy = ? ORDER BY course, sectionName', [req.adminId], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows || []);
+  });
+});
+
+// GET - Single section (verify ownership)
+app.get('/api/sections/:id', verifyToken, (req, res) => {
+  const { id } = req.params;
+  db.get('SELECT * FROM sections WHERE id = ? AND createdBy = ?', [id, req.adminId], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (!row) {
+      return res.status(404).json({ error: 'Section not found or access denied' });
+    }
+    res.json(row);
+  });
+});
+
+// POST - Create new section
+app.post('/api/sections', verifyToken, (req, res) => {
+  const { sectionName, course, subject, scheduleTime, scheduleDay } = req.body;
+  const createdBy = req.adminId;
+
+  if (!sectionName || !course || !subject || !scheduleTime || !scheduleDay) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  const sql = 'INSERT INTO sections (sectionName, course, subject, scheduleTime, scheduleDay, createdBy) VALUES (?, ?, ?, ?, ?, ?)';
+  db.run(sql, [sectionName, course, subject, scheduleTime, scheduleDay, createdBy], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({
+      id: this.lastID,
+      sectionName,
+      course,
+      subject,
+      scheduleTime,
+      scheduleDay,
+      createdBy,
+      message: 'Section created successfully'
+    });
+  });
+});
+
+// PUT - Update section (verify ownership)
+app.put('/api/sections/:id', verifyToken, (req, res) => {
+  const { id } = req.params;
+  const { sectionName, course, subject, scheduleTime, scheduleDay } = req.body;
+
+  if (!sectionName || !course || !subject || !scheduleTime || !scheduleDay) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  const sql = 'UPDATE sections SET sectionName = ?, course = ?, subject = ?, scheduleTime = ?, scheduleDay = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND createdBy = ?';
+  db.run(sql, [sectionName, course, subject, scheduleTime, scheduleDay, id, req.adminId], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Section not found or access denied' });
+    }
+    res.json({
+      id,
+      sectionName,
+      course,
+      subject,
+      scheduleTime,
+      scheduleDay,
+      message: 'Section updated successfully'
+    });
+  });
+});
+
+// DELETE - Remove section (verify ownership)
+app.delete('/api/sections/:id', verifyToken, (req, res) => {
+  const { id } = req.params;
+
+  db.run('DELETE FROM sections WHERE id = ? AND createdBy = ?', [id, req.adminId], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Section not found or access denied' });
+    }
+    res.json({ message: 'Section deleted successfully' });
   });
 });
 
