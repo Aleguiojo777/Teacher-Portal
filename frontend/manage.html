@@ -11,8 +11,6 @@
 </head>
 <body>
 
-<button class="sidebar-toggle" id="sidebarToggle">☰ Menu</button>
-
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-logo">
     <img src="resources/techvision.png" alt="Teacher Portal Logo">
@@ -88,48 +86,75 @@
 </div>
 
 <div class="card">
-<h2>Add / Update Student</h2>
+  <h2>Add / Update Student</h2>
 
-<div class="form-grid">
-  <input id="firstName" placeholder="First Name" required>
-  <input id="lastName" placeholder="Last Name" required>
-  <input id="contactNo" placeholder="Contact No." required>
-  <select id="sectionDropdown" title="Section" required>
-    <option value="">Select Section</option>
-  </select>
-  <input id="course" placeholder="Course" readonly>
-  <input id="section" placeholder="Section" readonly>
-  <input id="subject" placeholder="Subject" readonly>
-  <input id="startTime" placeholder="Start Time" readonly>
-  <input id="endTime" placeholder="End Time" readonly>
-</div>
-
-<button id="studentBtn" onclick="saveStudent()">Add Student</button>
+  <div class="form-layout-left-btn">
+    <div class="form-grid">
+      <div>
+        <label for="firstName">First Name</label>
+        <input id="firstName" placeholder="First Name" required>
+      </div>
+      <div>
+        <label for="lastName">Last Name</label>
+        <input id="lastName" placeholder="Last Name" required>
+      </div>
+      <div>
+        <label for="contactNo">Contact No.</label>
+        <input id="contactNo" placeholder="Contact No." required>
+      </div>
+      <div>
+        <label for="sectionDropdown">Section</label>
+        <select id="sectionDropdown" title="Section" required>
+          <option value="">Select Section</option>
+        </select>
+      </div>
+      <div>
+        <label for="course">Course</label>
+        <input id="course" placeholder="Course" readonly>
+      </div>
+      <div>
+        <label for="section">Section</label>
+        <input id="section" placeholder="Section" readonly>
+      </div>
+      <div>
+        <label for="subject">Subject</label>
+        <input id="subject" placeholder="Subject" readonly>
+      </div>
+      <div>
+        <label for="startTime">Start Time</label>
+        <input id="startTime" placeholder="Start Time" readonly>
+      </div>
+      <div>
+        <label for="endTime">End Time</label>
+        <input id="endTime" placeholder="End Time" readonly>
+      </div>
+    </div>
+    <button id="studentBtn" class="side-btn-left" onclick="saveStudent()">Add Student</button>
+  </div>
 </div>
 
 <div class="card">
-<h2>Student Records</h2>
+  <h2>Student Records</h2>
 
-<div class="table-responsive">
-<table>
-<thead>
-<tr>
-<th>#</th>
-<th>First Name</th>
-<th>Last Name</th>
-<th>Contact No.</th>
-<th>Course</th>
-<th>Section</th>
-<th>Start</th>
-<th>End</th>
-<th>Registered</th>
-<th>Action</th>
-</tr>
-</thead>
-<tbody id="studentList"></tbody>
-  </table>
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Contact No.</th>
+          <th>Course</th>
+          <th>Section</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Registered</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="studentList"></tbody>
+    </table>
   </div>
-
 </div></div>
 </div>
 

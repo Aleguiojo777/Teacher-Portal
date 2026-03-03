@@ -11,8 +11,6 @@
 </head>
 <body>
 
-<button class="sidebar-toggle" id="sidebarToggle">☰ Menu</button>
-
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-logo">
     <img src="resources/techvision.png" alt="Teacher Portal Logo">
@@ -32,16 +30,18 @@
 <div class="main-content">
   <div class="container">
   <section id="section-home" class="section">
-    <div class="card welcome">
-      <h2 id="welcomeTitle">Welcome</h2>
-      <p id="welcomeText">Use the menu to manage students and attendance.</p>
-      <div class="date-selector">
-        <label for="homeReportDate">Select Date:</label>
-        <input type="date" id="homeReportDate" class="date-input" />
-      </div>
-    </div>
+    <div class="home-layout">
+      <div class="right-panel">
+        <div class="card welcome">
+          <h2 id="welcomeTitle">Welcome</h2>
+          <p id="welcomeText">Use the menu to manage students and attendance.</p>
+          <div class="date-selector">
+            <label for="homeReportDate">Select Date:</label>
+            <input type="date" id="homeReportDate" class="date-input" />
+          </div>
+        </div>
 
-    <div class="report-grid">
+        <div class="report-grid">
       <div class="stat-card present">
         <h3>Present</h3>
         <div class="number" id="presentCount">0</div>
@@ -61,6 +61,8 @@
         <h3>Total Students</h3>
         <div class="number" id="totalCount">0</div>
         <div class="percentage" id="totalPercentage">100%</div>
+      </div>
+    </div>
       </div>
     </div>
   </section>
@@ -123,20 +125,22 @@
   <section id="section-manage" class="section hidden-section">
     <div class="card">
       <h2>Add / Update Student</h2>
-      <div class="form-grid">
-        <input id="firstName" placeholder="First Name" required>
-        <input id="lastName" placeholder="Last Name" required>
-        <input id="contactNo" placeholder="Contact No." required>
-        <select id="sectionDropdown" title="Section" required>
-          <option value="">Select Section</option>
-        </select>
-        <input id="course" placeholder="Course" readonly>
-        <input id="section" placeholder="Section" readonly>
-        <input id="subject" placeholder="Subject" readonly>
-        <input id="startTime" placeholder="Start Time" readonly>
-        <input id="endTime" placeholder="End Time" readonly>
+      <div class="form-layout-left-btn">
+        <div class="form-grid">
+          <input id="firstName" placeholder="First Name" required>
+          <input id="lastName" placeholder="Last Name" required>
+          <input id="contactNo" placeholder="Contact No." required>
+          <select id="sectionDropdown" title="Section" required>
+            <option value="">Select Section</option>
+          </select>
+          <input id="course" placeholder="Course" readonly>
+          <input id="section" placeholder="Section" readonly>
+          <input id="subject" placeholder="Subject" readonly>
+          <input id="startTime" placeholder="Start Time" readonly>
+          <input id="endTime" placeholder="End Time" readonly>
+        </div>
+        <button id="studentBtn" class="side-btn-left" onclick="saveStudent()">Add Student</button>
       </div>
-      <button id="studentBtn" onclick="saveStudent()">Add Student</button>
     </div>
 
     <div class="card">

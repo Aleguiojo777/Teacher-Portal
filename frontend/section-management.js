@@ -68,6 +68,22 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
+// Defensive cleanup: remove stray single-character text nodes containing only "("
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    const remove = [];
+    let node;
+    while(node = walker.nextNode()) {
+      if(node && node.nodeValue && node.nodeValue.trim() === '(') remove.push(node);
+    }
+    remove.forEach(n => n.parentNode && n.parentNode.removeChild(n));
+    if(remove.length) console.debug('[CLEANUP] section-management removed', remove.length, 'stray "(" nodes');
+  } catch(e) {
+    console.error('[CLEANUP] section-management cleanup failed', e);
+  }
+});
+
 function showMessage(text, type = 'success') {
   const messageEl = document.getElementById('message');
   messageEl.textContent = text;

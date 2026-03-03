@@ -41,6 +41,22 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+// Defensive cleanup: remove stray single-character text nodes containing only "("
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    const remove = [];
+    let node;
+    while(node = walker.nextNode()) {
+      if(node && node.nodeValue && node.nodeValue.trim() === '(') remove.push(node);
+    }
+    remove.forEach(n => n.parentNode && n.parentNode.removeChild(n));
+    if(remove.length) console.debug('[CLEANUP] user-management removed', remove.length, 'stray "(" nodes');
+  } catch(e) {
+    console.error('[CLEANUP] user-management cleanup failed', e);
+  }
+});
+
 // Simple helper to set message
 function setMessage(text, type){
   const el = document.getElementById('message');
@@ -92,8 +108,6 @@ async function loadUsers(){
     const usersBody = document.getElementById('usersBody');
     usersBody.removeEventListener('click', handleUserAction);
     usersBody.addEventListener('click', handleUserAction);
-
-    setMessage('Users loaded', '');
   } catch(err){
     console.error(err);
     setMessage('Error loading users', 'error');

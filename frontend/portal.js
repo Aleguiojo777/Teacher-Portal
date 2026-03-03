@@ -48,6 +48,26 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+// Remove stray single-character text nodes containing only "(" which
+// sometimes appear due to previous edits or accidental paste. This is
+// defensive — it only removes text nodes whose trimmed content is exactly "(".
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    const remove = [];
+    let node;
+    while(node = walker.nextNode()) {
+      if(node && node.nodeValue && node.nodeValue.trim() === '(') {
+        remove.push(node);
+      }
+    }
+    remove.forEach(n => n.parentNode && n.parentNode.removeChild(n));
+    if(remove.length) console.debug('[CLEANUP] Removed', remove.length, 'stray "(" text nodes');
+  } catch(e) {
+    console.error('[CLEANUP] Failed to remove stray parentheses:', e);
+  }
+});
+
 /* ===========================
    LOAD STUDENTS FROM API
 =========================== */
@@ -759,6 +779,7 @@ function applyUserVisibility(){
     const storedAdmin = JSON.parse(localStorage.getItem('admin') || 'null');
     const userMgmtNav = document.getElementById('userMgmtNav');
     const manageSectionsNav = document.getElementById('manageSectionsNav');
+    const manageSectionCard = document.getElementById('manageSectionCard');
     const welcomeTitle = document.getElementById('welcomeTitle');
     const welcomeText = document.getElementById('welcomeText');
     const logoutNav = document.getElementById('logoutNav');
@@ -786,6 +807,14 @@ function applyUserVisibility(){
                 manageSectionsNav.classList.add('hidden');
             }
         }
+
+        if(manageSectionCard) {
+            if(isAdmin) {
+                manageSectionCard.classList.add('visible');
+            } else {
+                manageSectionCard.classList.remove('visible');
+            }
+        }
         
         if(logoutNav) logoutNav.classList.remove('hidden');
         if(logoutLink) {
@@ -796,6 +825,7 @@ function applyUserVisibility(){
         if(welcomeText) welcomeText.textContent = 'Please login.';
         if(userMgmtNav) userMgmtNav.classList.add('hidden');
         if(manageSectionsNav) manageSectionsNav.classList.add('hidden');
+        if(manageSectionCard) manageSectionCard.classList.remove('visible');
         if(logoutNav) logoutNav.classList.add('hidden');
     }
 }
