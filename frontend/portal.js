@@ -3,6 +3,7 @@
 =========================== */
 
 let students = [];
+let sections = [];
 let editingId = null;
 // Compute API base once globally so multiple pages/scripts don't redeclare it
 window.API_BASE = window.API_BASE || (function(){
@@ -190,18 +191,79 @@ function handleHomeDateChange(e){
    MANAGE STUDENTS (CRUD)
 =========================== */
 
+// Normalize various common time inputs to "hh:mm AM/PM"
+function normalizeTime(input) {
+  if (!input || String(input).trim() === '') return null;
+  const s = String(input).trim();
+
+  // 1) Explicit AM/PM with or without colon: "9am", "9:00am", "09:00 AM"
+  const ampmRegex = /^\s*(\d{1,2})(?::([0-5]\d))?\s*([AaPp][Mm])\s*$/;
+  let m = s.match(ampmRegex);
+  if (m) {
+    let h = parseInt(m[1], 10);
+    const mm = m[2] ? m[2] : '00';
+    if (h < 1 || h > 12) return null;
+    const period = m[3].toUpperCase();
+    const hh = (h < 10 ? '0' + h : String(h));
+    return `${hh}:${mm} ${period}`;
+  }
+
+  // 2) 24-hour or plain hh:mm -> convert to 12-hour with AM/PM
+  const hmRegex = /^\s*(\d{1,2}):(\d{2})\s*$/;
+  m = s.match(hmRegex);
+  if (m) {
+    let h = parseInt(m[1], 10);
+    const mm = m[2];
+    if (h < 0 || h > 23) return null;
+    const period = h >= 12 ? 'PM' : 'AM';
+    let h12 = h % 12;
+    if (h12 === 0) h12 = 12;
+    const hh = (h12 < 10 ? '0' + h12 : String(h12));
+    return `${hh}:${mm} ${period}`;
+  }
+
+  // 3) Bare hour like "9" -> assume on-the-hour, treat as 24-hour hour then convert
+  const hOnly = /^\s*(\d{1,2})\s*$/;
+  m = s.match(hOnly);
+  if (m) {
+    let h = parseInt(m[1], 10);
+    if (h < 0 || h > 23) return null;
+    const period = h >= 12 ? 'PM' : 'AM';
+    let h12 = h % 12;
+    if (h12 === 0) h12 = 12;
+    const hh = (h12 < 10 ? '0' + h12 : String(h12));
+    return `${hh}:00 ${period}`;
+  }
+
+  return null;
+}
+
+
 async function saveStudent(){
     const firstName = document.getElementById("firstName").value;
     const lastName = document.getElementById("lastName").value;
     const contactNo = document.getElementById("contactNo").value;
     const course = document.getElementById("course").value;
     const section = document.getElementById("section").value;
+    const startTime = document.getElementById("startTime").value;
+    const endTime = document.getElementById("endTime").value;
     const btn = document.getElementById("studentBtn");
 
-    if(!firstName || !lastName || !contactNo || !course || !section){
+  if(!firstName || !lastName || !contactNo || !course || !section || !startTime || !endTime){
         alert("Fill all fields");
         return;
     }
+  // Normalize and validate times (accept common inputs like "9:00", "9am", "13:00")
+  const normalizedStart = normalizeTime(startTime);
+  const normalizedEnd = normalizeTime(endTime);
+  if(!normalizedStart || !normalizedEnd){
+    alert('Start and End times must be in format hh:mm AM or hh:mm PM (e.g. 09:00 AM)');
+    return;
+  }
+
+  // write normalized values back to inputs so users see the canonical format
+  document.getElementById('startTime').value = normalizedStart;
+  document.getElementById('endTime').value = normalizedEnd;
 
     try {
         let response;
@@ -216,11 +278,13 @@ async function saveStudent(){
                     'Authorization': 'Bearer ' + token
                 },
                 body: JSON.stringify({
-                    firstName,
-                    lastName,
-                    contactNo,
-                    course,
-                    section
+                  firstName,
+                  lastName,
+                  contactNo,
+                  course,
+                  section,
+                  startTime: normalizedStart,
+                  endTime: normalizedEnd
                 })
             });
         } else {
@@ -233,11 +297,13 @@ async function saveStudent(){
                     'Authorization': 'Bearer ' + token
                 },
                 body: JSON.stringify({
-                    firstName,
-                    lastName,
-                    contactNo,
-                    course,
-                    section
+                  firstName,
+                  lastName,
+                  contactNo,
+                  course,
+                  section,
+                  startTime,
+                  endTime
                 })
             });
         }
@@ -274,6 +340,8 @@ function renderStudents(){
         <td>${s.contactNo}</td>
         <td>${s.course}</td>
         <td>${s.section}</td>
+        <td>${s.startTime || ''}</td>
+        <td>${s.endTime || ''}</td>
         <td>${formatDateTime(s.createdAt)}</td>
         <td>
             <button class="edit-user" data-id="${s.id}">Edit</button>
@@ -335,7 +403,19 @@ function openEditStudentModal(studentData) {
   document.getElementById('editStudentContactNo').value = studentData.contactNo;
   document.getElementById('editStudentCourse').value = studentData.course;
   document.getElementById('editStudentSection').value = studentData.section;
+  document.getElementById('editStudentStartTime').value = studentData.startTime || '';
+  document.getElementById('editStudentEndTime').value = studentData.endTime || '';
   document.getElementById('editStudentMessage').textContent = '';
+  
+  // Find and select the matching section in the dropdown
+  const editSectionDropdown = document.getElementById('editSectionDropdown');
+  if(editSectionDropdown && studentData.course && studentData.section) {
+    const matchingSection = sections.find(s => s.course === studentData.course && s.sectionName === studentData.section);
+    if(matchingSection) {
+      editSectionDropdown.value = matchingSection.id;
+    }
+  }
+  
   document.getElementById('editStudentModal').classList.remove('modal-hidden');
 }
 
@@ -371,25 +451,41 @@ function handleEditStudentFormSubmit(e) {
   const contactNo = document.getElementById('editStudentContactNo').value.trim();
   const course = document.getElementById('editStudentCourse').value.trim();
   const section = document.getElementById('editStudentSection').value.trim();
+  const startTime = document.getElementById('editStudentStartTime').value.trim();
+  const endTime = document.getElementById('editStudentEndTime').value.trim();
   const token = localStorage.getItem('token');
 
   if(!token) {
     setEditStudentMessage('Unauthorized: Please login', 'error');
     return;
   }
-  if(!firstName || !lastName || !contactNo || !course || !section) {
+  if(!firstName || !lastName || !contactNo || !course || !section || !startTime || !endTime) {
     setEditStudentMessage('All fields are required', 'error');
     return;
   }
 
-  submitEditStudentForm(firstName, lastName, contactNo, course, section, token, currentEditingStudentId);
+  // Normalize times for edit form
+  const normalizedStart = normalizeTime(startTime);
+  const normalizedEnd = normalizeTime(endTime);
+  if(!normalizedStart || !normalizedEnd){
+    setEditStudentMessage('Start and End times must be in format hh:mm AM/PM', 'error');
+    return;
+  }
+
+  // update inputs to canonical form so user sees normalized value
+  document.getElementById('editStudentStartTime').value = normalizedStart;
+  document.getElementById('editStudentEndTime').value = normalizedEnd;
+
+  submitEditStudentForm(firstName, lastName, contactNo, course, section, token, currentEditingStudentId, normalizedStart, normalizedEnd);
 }
 
 async function submitEditStudentForm(firstName, lastName, contactNo, course, section, token, studentId) {
   try {
     setEditStudentMessage('Updating student...', 'loading');
     
-    const body = { firstName, lastName, contactNo, course, section };
+    const startTime = document.getElementById('editStudentStartTime').value.trim();
+    const endTime = document.getElementById('editStudentEndTime').value.trim();
+    const body = { firstName, lastName, contactNo, course, section, startTime, endTime };
 
     const res = await fetch(`${API_BASE}/students/${studentId}`, {
       method: 'PUT',
@@ -423,6 +519,8 @@ function clearForm(){
     document.getElementById("contactNo").value = "";
     document.getElementById("course").value = "";
     document.getElementById("section").value = "";
+  document.getElementById("startTime").value = "";
+  document.getElementById("endTime").value = "";
 
     editingId = null;
     document.getElementById("studentBtn").textContent = "Add Student";
@@ -434,19 +532,110 @@ function clearForm(){
 =========================== */
 
 function loadSections(){
-    const select = document.getElementById("attendanceSection");
-    if(!select) return;
+    const token = localStorage.getItem('token');
+    
+    fetch(`${API_BASE}/sections`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(r => r.json())
+    .then(data => {
+        sections = data || [];
+        populateSectionDropdowns();
+    })
+    .catch(e => console.error('Error loading sections:', e));
+}
 
-    select.innerHTML = `<option value="">Select Section</option>`;
+function populateSectionDropdowns(){
+    const selects = [
+        document.getElementById('sectionDropdown'),
+        document.getElementById('editSectionDropdown'),
+        document.getElementById('attendanceSection')
+    ];
 
-    const sections = [...new Set(students.map(s => s.section))];
-
-    sections.forEach(sec=>{
-        const opt = document.createElement("option");
-        opt.value = sec;
-        opt.textContent = sec;
-        select.appendChild(opt);
+    selects.forEach(select => {
+        if(!select) return;
+        
+        const selectedValue = select.value;
+        select.innerHTML = `<option value="">Select Section</option>`;
+        
+        sections.forEach(sec => {
+            const opt = document.createElement('option');
+            // Use sectionName as value since students are stored with section name
+            opt.value = sec.sectionName;
+            opt.textContent = `${sec.sectionName} - ${sec.course} (${sec.scheduleDay})`;
+            opt.dataset.sectionId = sec.id;
+            opt.dataset.course = sec.course;
+            opt.dataset.sectionName = sec.sectionName;
+            opt.dataset.scheduleTime = sec.scheduleTime;
+            select.appendChild(opt);
+        });
+        
+        // Restore previous selection or select the first section
+        if(selectedValue) {
+            select.value = selectedValue;
+        } else if(sections.length > 0) {
+            // Auto-select first section if none was previously selected
+            select.value = sections[0].sectionName;
+        }
+        
+        // Trigger change event to populate dependent fields
+        select.dispatchEvent(new Event('change'));
     });
+
+    // After populating, call loadAttendance if on attendance page
+    const attendanceSelect = document.getElementById('attendanceSection');
+    if(attendanceSelect && attendanceSelect.value) {
+        loadAttendance();
+    }
+
+    // Add change event listeners
+    const mainSectionDropdown = document.getElementById('sectionDropdown');
+    const editSectionDropdown = document.getElementById('editSectionDropdown');
+    
+    if(mainSectionDropdown) {
+        mainSectionDropdown.addEventListener('change', () => {
+            fillStudentDetailsFromSection('sectionDropdown');
+        });
+    }
+    
+    if(editSectionDropdown) {
+        editSectionDropdown.addEventListener('change', () => {
+            fillStudentDetailsFromSection('editSectionDropdown');
+        });
+    }
+}
+
+function fillStudentDetailsFromSection(dropdownId){
+    const dropdown = document.getElementById(dropdownId);
+    if(!dropdown || !dropdown.value) return;
+
+    const selectedOption = dropdown.options[dropdown.selectedIndex];
+    const course = selectedOption.dataset.course;
+    const sectionName = selectedOption.dataset.sectionName;
+    const scheduleTime = selectedOption.dataset.scheduleTime;
+    
+    // Parse schedule time into start and end times
+    // Expected format: "09:00 AM - 10:30 AM" or "09:00-10:30"
+    let startTime = '', endTime = '';
+    if(scheduleTime) {
+        const parts = scheduleTime.split('-').map(p => p.trim());
+        if(parts.length === 2) {
+            startTime = parts[0];
+            endTime = parts[1];
+        }
+    }
+
+    if(dropdownId === 'sectionDropdown') {
+        document.getElementById('course').value = course;
+        document.getElementById('section').value = sectionName;
+        document.getElementById('startTime').value = startTime;
+        document.getElementById('endTime').value = endTime;
+    } else if(dropdownId === 'editSectionDropdown') {
+        document.getElementById('editStudentCourse').value = course;
+        document.getElementById('editStudentSection').value = sectionName;
+        document.getElementById('editStudentStartTime').value = startTime;
+        document.getElementById('editStudentEndTime').value = endTime;
+    }
 }
 
 function loadAttendance(){
@@ -601,12 +790,22 @@ function showSection(name){
     sections.forEach(s => {
         const el = document.getElementById('section-' + s);
         if(!el) return;
-        el.style.display = (s === name) ? '' : 'none';
+        if(s === name) {
+            el.classList.remove('hidden-section');
+            el.style.display = '';
+        } else {
+            el.classList.add('hidden-section');
+            el.style.display = 'none';
+        }
     });
 
     // Update active nav link
     document.querySelectorAll('.nav-link').forEach(link => {
-        if(link.dataset.section === name) link.classList.add('active'); else link.classList.remove('active');
+        if(link.dataset.section === name) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+        }
     });
 
     // Load data for specific sections
@@ -625,12 +824,34 @@ document.addEventListener('DOMContentLoaded', function() {
     loadStudents();
   }
 
-  // Wire nav links
+  // Wire nav links - use event delegation for reliability
+  const sidebar = document.getElementById('sidebar');
+  if(sidebar) {
+    sidebar.addEventListener('click', (e) => {
+      if(e.target.classList.contains('nav-link')) {
+        // Only prevent default if this is an internal section navigation (has data-section)
+        if(e.target.dataset.section) {
+          e.preventDefault();
+          e.stopPropagation();
+          const sec = e.target.dataset.section || 'home';
+          showSection(sec);
+        }
+        // Otherwise let the link navigate normally (for external page links like section-management.html)
+      }
+    });
+  }
+  
+  // Also attach direct listeners to all nav-links for backwards compatibility
   document.querySelectorAll('.nav-link').forEach(link => {
       link.addEventListener('click', (e) => {
-          e.preventDefault();
-          const sec = link.dataset.section || 'home';
-          showSection(sec);
+          // Only handle internal section navigation (must have data-section attribute)
+          if(link.dataset.section) {
+              e.preventDefault();
+              e.stopPropagation();
+              const sec = link.dataset.section || 'home';
+              showSection(sec);
+          }
+          // Otherwise let the link navigate normally
       });
   });
 

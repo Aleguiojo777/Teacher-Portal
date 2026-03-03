@@ -143,6 +143,14 @@ margin:30px auto;
 padding: 0 20px;
 }
 
+.section {
+  display: block;
+}
+
+.hidden-section {
+  display: none;
+}
+
 .card{
 background:white;
 padding:22px;
@@ -151,10 +159,18 @@ box-shadow:0 8px 25px rgba(0,0,0,.12);
 margin-bottom:22px;
 }
 
+.card h2 {
+  text-align: center;
+  color: #333;
+  margin-top: 0;
+}
+
 .form-grid{
 display:grid;
 grid-template-columns:repeat(3,1fr);
 gap:12px;
+max-width: 1000px;
+margin: 0 auto 20px auto;
 }
 
 input,select{
@@ -173,6 +189,16 @@ cursor:pointer;
 font-weight:bold;
 }
 
+#studentBtn {
+  display: block;
+  margin: 20px auto 0 auto;
+  padding: 12px 30px;
+  font-size: 16px;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
 table{
 width:100%;
 border-collapse:collapse;
@@ -519,4 +545,10 @@ background:#f1f5f9;
 .stat-card .percentage {
   font-size: 12px;
   opacity: 0.85;
+}
+/* Readonly Input Styling */
+input[readonly] {
+  background-color: #f0f0f0 !important;
+  cursor: not-allowed !important;
+  color: #666;
 }
