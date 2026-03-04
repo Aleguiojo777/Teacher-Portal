@@ -196,17 +196,23 @@ function updateHomeStatistics(attendanceRecords) {
             return;
         }
 
-        // Count attendance status for each student
+        // Optionally filter by selected section on the Home view
+        const homeSectionEl = document.getElementById('homeSectionSelect');
+        const selectedSection = homeSectionEl && homeSectionEl.value ? homeSectionEl.value : null;
+
+        // Count attendance status for each (filtered) student
         students.forEach(student => {
-            const attendance = attendanceRecords.find(a => a.studentId === student.id);
-            const status = attendance ? attendance.status : 'Absent';
+          if(selectedSection && String(student.section) !== String(selectedSection)) return; // skip other sections
+
+          const attendance = attendanceRecords.find(a => a.studentId === student.id);
+          const status = attendance ? attendance.status : 'Absent';
             
-            if(status === "Present") presentCount++;
-            else if(status === "Late") lateCount++;
-            else absentCount++;
+          if(status === "Present") presentCount++;
+          else if(status === "Late") lateCount++;
+          else absentCount++;
         });
         
-        const total = students.length;
+        const total = selectedSection ? students.filter(s => String(s.section) === String(selectedSection)).length : students.length;
         const presentPct = total > 0 ? Math.round((presentCount / total) * 100) : 0;
         const absentPct = total > 0 ? Math.round((absentCount / total) * 100) : 0;
         const latePct = total > 0 ? Math.round((lateCount / total) * 100) : 0;
@@ -610,17 +616,23 @@ function loadSections(){
 }
 
 function populateSectionDropdowns(){
-    const selects = [
-        document.getElementById('sectionDropdown'),
-        document.getElementById('editSectionDropdown'),
-        document.getElementById('attendanceSection')
-    ];
+  const selects = [
+    document.getElementById('sectionDropdown'),
+    document.getElementById('editSectionDropdown'),
+    document.getElementById('attendanceSection'),
+    document.getElementById('homeSectionSelect')
+  ];
 
     selects.forEach(select => {
         if(!select) return;
         
         const selectedValue = select.value;
-        select.innerHTML = `<option value="">Select Section</option>`;
+        // For home selector we provide an "All Sections" option
+        if(select.id === 'homeSectionSelect') {
+          select.innerHTML = `<option value="">All Sections</option>`;
+        } else {
+          select.innerHTML = `<option value="">Select Section</option>`;
+        }
         
         sections.forEach(sec => {
             const opt = document.createElement('option');
@@ -658,15 +670,25 @@ function populateSectionDropdowns(){
     const editSectionDropdown = document.getElementById('editSectionDropdown');
     
     if(mainSectionDropdown) {
-        mainSectionDropdown.addEventListener('change', () => {
-            fillStudentDetailsFromSection('sectionDropdown');
-        });
+      mainSectionDropdown.addEventListener('change', () => {
+        fillStudentDetailsFromSection('sectionDropdown');
+      });
     }
     
     if(editSectionDropdown) {
-        editSectionDropdown.addEventListener('change', () => {
-            fillStudentDetailsFromSection('editSectionDropdown');
-        });
+      editSectionDropdown.addEventListener('change', () => {
+        fillStudentDetailsFromSection('editSectionDropdown');
+      });
+    }
+
+    // Home page section selector - when changed, reload attendance for currently selected date
+    const homeSectionSelect = document.getElementById('homeSectionSelect');
+    if(homeSectionSelect) {
+      homeSectionSelect.addEventListener('change', () => {
+        const dateInput = document.getElementById('homeReportDate');
+        const dateToLoad = dateInput && dateInput.value ? dateInput.value : new Date().toISOString().split('T')[0];
+        loadAttendanceForDate(dateToLoad);
+      });
     }
 }
 
