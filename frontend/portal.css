@@ -1,14 +1,36 @@
+:root{
+  /* Design tokens */
+  --bg: #f6f9fb;
+  --surface: #ffffff;
+  --muted: #64748b;
+  --text: #0f172a;
+  --brand: #2563eb; /* primary */
+  --brand-600: #1e40af;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --warning: #d97706;
+  --card-border: #e6eef9;
+  --radius: 10px;
+  --shadow-1: 0 6px 18px rgba(2,6,23,0.06);
+  --shadow-2: 0 12px 30px rgba(2,6,23,0.06);
+  --container-width: 1180px;
+}
+
 *{
-box-sizing: border-box;
-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   margin: 0;
-  background: #f8fafc;
+  background: var(--bg);
   display: flex;
   min-height: 100vh;
-  color: #334155;
+  color: var(--text);
+  line-height: 1.45;
+  font-size: 15px;
 }
 
 /* Sidebar Navigation */
@@ -99,6 +121,22 @@ body {
 }
 
 /* Toggle button intentionally removed — sidebar always visible on desktop */
+/* Mobile hamburger toggle (visible on small screens) */
+.sidebar-toggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1101;
+  background: white;
+  color: #0f172a;
+  border: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 20px;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.12);
+}
 
 /* Main content area */
 .main-content {
@@ -110,18 +148,39 @@ body {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  /* Mobile: keep sidebar behavior intact but no toggle button (uses full-screen sidebar) */
+  /* Mobile: sidebar becomes off-canvas and toggle is shown */
+  .sidebar-toggle { display: block; }
+
   .sidebar {
-    width: 100%;
-    height: auto;
+    width: 280px;
+    height: 100vh;
     position: fixed;
+    left: 0;
+    top: 0;
     transform: translateX(-100%);
-    z-index: 999;
+    z-index: 1099;
+    transition: transform 0.25s ease;
   }
 
   .sidebar.show {
     transform: translateX(0);
   }
+
+/* Dim overlay when sidebar is open on mobile */
+#sidebarOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 1098;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+#sidebarOverlay.show {
+  display: block;
+  opacity: 1;
+}
 
   .main-content {
     margin-left: 0;
@@ -335,11 +394,17 @@ tr:hover {
 /* Feedback messages used by forms */
 .message { 
   margin-bottom: 16px; 
-  padding: 14px 16px; 
+  padding: 12px 14px; 
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   border-left: 4px solid;
+  display: block;
+}
+
+/* Hide the message container when it's empty to avoid showing a blank box */
+.message:empty {
+  display: none;
 }
 
 .message.error { 
@@ -480,6 +545,71 @@ tr:hover {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
   transform: translateY(-1px);
+}
+
+/* ===========================
+   Modern overrides & accessibility improvements
+   Keep these last so they can override earlier rules if needed
+=========================== */
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
+}
+.btn.primary { background: linear-gradient(180deg, var(--brand) 0%, var(--brand-600) 100%); color: white; border: none; }
+.btn.secondary { background: transparent; border: 1px solid #d1d9e6; color: var(--text); }
+.btn.ghost { background: transparent; color: var(--brand); border: none; }
+.btn:active { transform: translateY(0); }
+
+/* Form labels and helpers */
+label { color: var(--muted); font-weight: 600; font-size: 13px; }
+.form-group input, .form-group select, input, select { border-radius: 8px; padding: 10px 12px; }
+.form-group small { color: #94a3b8; display:block; margin-top:6px; }
+
+/* High-contrast focus for keyboard users */
+:focus-visible { outline: 3px solid rgba(37,99,235,0.18); outline-offset: 2px; }
+
+/* Cards */
+.card { border-radius: 12px; border: 1px solid var(--card-border); background: var(--surface); box-shadow: var(--shadow-1); }
+
+/* Tables: subtle, readable */
+table { border-radius: 8px; overflow: hidden; }
+th { background: linear-gradient(180deg, #0f172a 0%, #1f2937 100%); }
+tr:nth-child(even) td { background: #fbfdff; }
+tr:hover td { background: #f1f7fb; }
+
+/* Status badges refined */
+.status-badge { padding: 6px 12px; font-size: 12px; border-radius: 999px; }
+.status-badge.present { background: rgba(16,185,129,0.12); color: var(--success); }
+.status-badge.absent { background: rgba(239,68,68,0.08); color: var(--danger); }
+.status-badge.late { background: rgba(245,158,11,0.09); color: var(--warning); }
+
+/* Responsive container width */
+.container { max-width: var(--container-width); padding: 20px; }
+
+/* Improve small-screen spacing */
+@media (max-width: 900px) {
+  .card { padding: 18px; }
+  .form-layout .form-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .sidebar { width: 260px; }
+}
+
+@media (max-width: 600px) {
+  .form-layout .form-grid { grid-template-columns: 1fr; }
+  .card h2 { font-size: 18px; }
+  .sidebar-toggle { top: 10px; left: 10px; }
 }
 
 .modal-btn.cancel-btn {
@@ -932,4 +1062,44 @@ tr:hover {
   .side-btn-left {
     width: 100%;
   }
+}
+
+/* Improved mobile responsiveness for management pages */
+@media (max-width: 900px) {
+  .card { padding: 20px; }
+  .card-header h2 { font-size: 20px; }
+  .form-layout .form-grid { grid-template-columns: repeat(2,1fr); gap:14px; }
+  .form-actions { justify-content: flex-start; }
+  .btn.primary { padding: 10px 14px; }
+  .table-responsive { overflow-x: auto; }
+  table th, table td { font-size: 13px; }
+}
+
+@media (max-width: 600px) {
+  /* Main content should take full width on small screens */
+  .main-content { margin-left: 0; padding-top: 12px; }
+
+  /* Make sidebar flow above content as a compact horizontal nav */
+  .sidebar { position: relative; transform: none; width: 100%; height: auto; box-shadow: none; }
+  .sidebar-logo { padding: 12px 16px; }
+  .sidebar ul { display: flex; flex-direction: row; gap: 6px; overflow-x: auto; padding: 8px 12px; }
+  .sidebar a { white-space: nowrap; padding: 8px 12px; border-left: none; }
+
+  .container { margin: 12px auto; padding: 0 12px; }
+  .card { padding: 16px; margin-bottom: 16px; }
+  .card-header h2 { font-size: 18px; }
+
+  .form-layout .form-grid { grid-template-columns: 1fr; }
+  .form-group input, .form-group select { width: 100%; }
+  .form-actions { display:block; }
+  .form-actions .btn.primary { width: 100%; display:block; }
+
+  /* Tables remain scrollable horizontally on small screens */
+  .table-responsive { overflow-x: auto; }
+  table { min-width: 700px; }
+  th, td { font-size: 13px; padding: 10px; }
+}
+
+@supports (-webkit-overflow-scrolling: touch) {
+  .table-responsive { -webkit-overflow-scrolling: touch; }
 }
