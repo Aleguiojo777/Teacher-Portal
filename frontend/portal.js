@@ -24,26 +24,55 @@ const API_BASE = window.API_BASE;
 document.addEventListener('DOMContentLoaded', function() {
   const sidebarToggle = document.getElementById('sidebarToggle');
   const sidebar = document.getElementById('sidebar');
-  
+
+  // ensure an overlay exists to capture outside clicks on mobile
+  let overlay = document.getElementById('sidebarOverlay');
+  if(!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'sidebarOverlay';
+    document.body.appendChild(overlay);
+  }
+
+  function closeSidebar() {
+    if(sidebar) sidebar.classList.remove('show');
+    if(overlay) overlay.classList.remove('show');
+    if(sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'false');
+  }
+
+  function openSidebar() {
+    if(sidebar) sidebar.classList.add('show');
+    if(overlay) overlay.classList.add('show');
+    if(sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'true');
+  }
+
   if(sidebarToggle && sidebar) {
-    sidebarToggle.addEventListener('click', function() {
-      sidebar.classList.toggle('show');
+    sidebarToggle.setAttribute('aria-controls', 'sidebar');
+    sidebarToggle.setAttribute('aria-expanded', 'false');
+
+    sidebarToggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if(sidebar.classList.contains('show')) {
+        closeSidebar();
+      } else {
+        openSidebar();
+      }
     });
-    
-    // Close sidebar when clicking a link
+
+    // Close sidebar when clicking a link (mobile only)
     sidebar.querySelectorAll('a').forEach(link => {
       link.addEventListener('click', function() {
-        if(window.innerWidth <= 600) {
-          sidebar.classList.remove('show');
+        if(window.innerWidth <= 900) {
+          closeSidebar();
         }
       });
     });
-    
-    // Close sidebar when clicking outside
-    document.addEventListener('click', function(e) {
-      if(!sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
-        sidebar.classList.remove('show');
-      }
+
+    // Close when overlay clicked
+    overlay.addEventListener('click', function() { closeSidebar(); });
+
+    // Escape key closes sidebar
+    document.addEventListener('keydown', function(e) {
+      if(e.key === 'Escape') closeSidebar();
     });
   }
 });
@@ -182,15 +211,30 @@ function updateHomeStatistics(attendanceRecords) {
         const absentPct = total > 0 ? Math.round((absentCount / total) * 100) : 0;
         const latePct = total > 0 ? Math.round((lateCount / total) * 100) : 0;
         
-        // Update UI
-        document.getElementById("presentCount").textContent = presentCount;
-        document.getElementById("presentPercentage").textContent = presentPct + "%";
-        document.getElementById("absentCount").textContent = absentCount;
-        document.getElementById("absentPercentage").textContent = absentPct + "%";
-        document.getElementById("lateCount").textContent = lateCount;
-        document.getElementById("latePercentage").textContent = latePct + "%";
-        document.getElementById("totalCount").textContent = total;
-        document.getElementById("totalPercentage").textContent = "100%";
+        // Update UI - only when the home statistics elements exist (some pages don't include them)
+        const presentEl = document.getElementById("presentCount");
+        const presentPctEl = document.getElementById("presentPercentage");
+        const absentEl = document.getElementById("absentCount");
+        const absentPctEl = document.getElementById("absentPercentage");
+        const lateEl = document.getElementById("lateCount");
+        const latePctEl = document.getElementById("latePercentage");
+        const totalEl = document.getElementById("totalCount");
+        const totalPctEl = document.getElementById("totalPercentage");
+
+        // If none of the expected elements exist, skip updating the DOM.
+        if(!(presentEl || presentPctEl || absentEl || absentPctEl || lateEl || latePctEl || totalEl || totalPctEl)) {
+          console.debug('[DEBUG] Home stats elements not present on this page; skipping DOM update');
+          return;
+        }
+
+        if(presentEl) presentEl.textContent = presentCount;
+        if(presentPctEl) presentPctEl.textContent = presentPct + "%";
+        if(absentEl) absentEl.textContent = absentCount;
+        if(absentPctEl) absentPctEl.textContent = absentPct + "%";
+        if(lateEl) lateEl.textContent = lateCount;
+        if(latePctEl) latePctEl.textContent = latePct + "%";
+        if(totalEl) totalEl.textContent = total;
+        if(totalPctEl) totalPctEl.textContent = "100%";
         
         console.log('[DEBUG] Home stats updated - Present:', presentCount, 'Late:', lateCount, 'Absent:', absentCount);
     } catch(error) {
@@ -915,7 +959,9 @@ document.addEventListener('DOMContentLoaded', function() {
     studentEditForm.removeEventListener('submit', handleEditStudentFormSubmit);
     studentEditForm.addEventListener('submit', handleEditStudentFormSubmit);
   } else {
-    console.warn('[WARN] studentEditForm not found in DOM');
+    // Not all pages include the student edit form (e.g., section-management.html).
+    // Use debug-level logging to avoid noisy warnings in the console.
+    console.debug('[DEBUG] studentEditForm not present on this page');
   }
 
   // Setup home date picker to default to today and listen for changes

@@ -1,17 +1,6 @@
-// Compute API base once globally so multiple pages/scripts don't redeclare it
-window.API_BASE = window.API_BASE || (function(){
-    try{
-        const origin = window.location.origin;
-        const host = window.location.hostname;
-        if(host === 'localhost' || host === '127.0.0.1') return 'http://localhost:3000/api';
-        return origin + '/api';
-    }catch(e){
-        return 'http://localhost:3000/api';
-    }
-})();
-const API_BASE = window.API_BASE;
+// `API_BASE` is provided by `portal.js` (shared global). Do not redeclare here.
 
-let sections = [];
+// `sections` is shared by `portal.js` (declared there). Do not redeclare with `let` here.
 let editingSectionId = null;
 
 // Sidebar toggle
@@ -101,9 +90,16 @@ async function loadSections() {
     });
     if(response.ok){
       sections = await response.json();
+      console.debug('[DEBUG] sections loaded:', (sections && sections.length) || 0);
       renderSections();
     } else if(response.status === 401) {
-      window.location.href = 'login.html';
+      console.warn('[WARN] Unauthorized when loading sections (401)');
+      showMessage('Unauthorized: please login to view sections', 'error');
+      // do not immediately redirect — allow user to see the message and take action
+    } else {
+      const txt = await response.text().catch(()=>null);
+      console.error('[ERROR] Failed to load sections. Status:', response.status, 'Body:', txt);
+      showMessage('Failed to load sections (status ' + response.status + ')', 'error');
     }
   } catch(error){
     console.error('Error loading sections:', error);
@@ -125,7 +121,17 @@ function formatDateTime(ts){
 
 function renderSections() {
   const tbody = document.getElementById('sectionsList');
+  if(!tbody) {
+    console.warn('[WARN] sectionsList tbody not found in DOM');
+    return;
+  }
   tbody.innerHTML = '';
+
+  if(!sections || sections.length === 0) {
+    const row = tbody.insertRow();
+    row.innerHTML = `<td colspan="8" style="text-align:center;padding:18px;color:#64748b">No sections found.</td>`;
+    return;
+  }
 
   sections.forEach((section, index) => {
     const row = tbody.insertRow();
@@ -303,11 +309,13 @@ function logout() {
 function applyUserVisibility(){
   const storedAdmin = JSON.parse(localStorage.getItem('admin') || 'null');
   const userMgmtNav = document.getElementById('userMgmtNav');
+  const mainContent = document.querySelector('.main-content');
   
   if(!storedAdmin || Number(storedAdmin.isAdmin) !== 1) {
-    // Only admins can access this page
-    alert('Access Denied: Only administrators can manage sections.');
-    window.location.href = 'portal.html';
+    // Non-destructive: show a clear message and hide the management UI instead of forcing a redirect
+    console.warn('[WARN] Access denied: user is not an admin');
+    showMessage('Access Denied: Only administrators can manage sections.', 'error');
+    if(mainContent) mainContent.style.display = 'none';
     return;
   }
   
