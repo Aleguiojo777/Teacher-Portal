@@ -855,7 +855,14 @@ function recordAttendance(studentId, status, date, recordedBy, res) {
       return res.status(500).json({ error: err.message });
     }
     console.log('[DEBUG] Attendance saved - studentId:', studentId, 'status:', status);
-    res.json({ success: true, message: 'Attendance recorded' });
+    // Return the saved attendance row so frontend can show timestamp
+    db.get('SELECT id, studentId, status, attendanceDate, createdAt, recordedBy FROM attendance WHERE studentId = ? AND attendanceDate = ?', [studentId, date], (getErr, row) => {
+      if (getErr) {
+        console.error('[ERROR] Failed to retrieve saved attendance:', getErr.message);
+        return res.status(500).json({ error: getErr.message });
+      }
+      res.json({ success: true, message: 'Attendance recorded', attendance: row });
+    });
   });
 }
 
@@ -885,7 +892,7 @@ app.get('/api/attendance/:date', verifyToken, (req, res) => {
         ORDER BY s.section, s.firstName
       `
       : `
-        SELECT a.id, a.studentId, a.status, a.attendanceDate, s.firstName, s.lastName, s.course, s.section
+        SELECT a.id, a.studentId, a.status, a.attendanceDate, a.createdAt, s.firstName, s.lastName, s.course, s.section
         FROM attendance a
         LEFT JOIN students s ON a.studentId = s.id
         WHERE a.attendanceDate = ? AND s.createdBy = ?
