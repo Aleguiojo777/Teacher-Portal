@@ -776,22 +776,24 @@ function loadAttendance(){
     console.log('[DEBUG] loadAttendance complete - students shown:', count);
 }
 
-function setStatus(id, status){
-    console.log('[DEBUG] setStatus called - id:', id, 'status:', status);
-    const student = students.find(s => s.id === id);
-    console.log('[DEBUG] student found:', student);
-    if(!student) {
-        console.warn('[WARN] Student not found with id:', id);
-        return;
-    }
+async function setStatus(id, status){
+  console.log('[DEBUG] setStatus called - id:', id, 'status:', status);
+  const student = students.find(s => s.id === id);
+  console.log('[DEBUG] student found:', student);
+  if(!student) {
+    console.warn('[WARN] Student not found with id:', id);
+    return;
+  }
     
-    student.status = status;
-    console.log('[DEBUG] Status updated to:', student.status);
-    
-    // Save to backend
-    saveAttendanceToBackend(id, status);
-    
-    loadAttendance();
+  // Update status locally and set a provisional timestamp so the UI updates immediately
+  student.status = status;
+  student.markedAt = new Date().toISOString();
+  console.log('[DEBUG] Status updated to:', student.status, 'markedAt:', student.markedAt);
+
+  // Save to backend and wait for server timestamp (if returned) before re-rendering
+  await saveAttendanceToBackend(id, status);
+
+  loadAttendance();
 }
 
 async function saveAttendanceToBackend(studentId, status) {
@@ -816,9 +818,16 @@ async function saveAttendanceToBackend(studentId, status) {
         
         const data = await response.json();
         if(response.ok) {
-            console.log('[DEBUG] Attendance saved successfully:', data);
+          console.log('[DEBUG] Attendance saved successfully:', data);
+          // Backend returns the saved attendance row under `attendance` (includes createdAt)
+          const attendanceRow = data && data.attendance ? data.attendance : null;
+          const ts = attendanceRow && (attendanceRow.createdAt || attendanceRow.updatedAt || attendanceRow.timestamp) ? (attendanceRow.createdAt || attendanceRow.updatedAt || attendanceRow.timestamp) : null;
+          if(ts) {
+            const stu = students.find(s => s.id === studentId);
+            if(stu) stu.markedAt = ts;
+          }
         } else {
-            console.error('[ERROR] Failed to save attendance:', data.error);
+          console.error('[ERROR] Failed to save attendance:', data.error || data);
         }
     } catch(error) {
         console.error('[ERROR] Error saving attendance:', error);
