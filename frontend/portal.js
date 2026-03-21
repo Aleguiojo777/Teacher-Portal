@@ -58,6 +58,22 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
 
+      // Edit modal event bindings
+      document.addEventListener('DOMContentLoaded', function() {
+        try {
+          const editForm = document.getElementById('studentEditForm');
+          if(editForm) editForm.addEventListener('submit', handleEditStudentFormSubmit);
+
+          const closeBtn = document.getElementById('closeEditStudentModal');
+          if(closeBtn) closeBtn.addEventListener('click', closeEditStudentModal);
+
+          const cancelBtn = document.getElementById('cancelEditStudentBtn');
+          if(cancelBtn) cancelBtn.addEventListener('click', closeEditStudentModal);
+        } catch(e) {
+          console.error('[INIT] Failed to bind edit modal events', e);
+        }
+      });
+
     // Close sidebar when clicking a link (mobile only)
     sidebar.querySelectorAll('a').forEach(link => {
       link.addEventListener('click', function() {
@@ -312,17 +328,32 @@ function normalizeTime(input) {
 async function saveStudent(){
     const firstName = document.getElementById("firstName").value;
     const lastName = document.getElementById("lastName").value;
+    const username = document.getElementById("username") ? document.getElementById("username").value.trim() : '';
     const contactNo = document.getElementById("contactNo").value;
+    const password = document.getElementById("password") ? document.getElementById("password").value : '';
     const course = document.getElementById("course").value;
     const section = document.getElementById("section").value;
     const startTime = document.getElementById("startTime").value;
     const endTime = document.getElementById("endTime").value;
     const btn = document.getElementById("studentBtn");
 
-  if(!firstName || !lastName || !contactNo || !course || !section || !startTime || !endTime){
+  if(!firstName || !lastName || !username || !contactNo || !course || !section || !startTime || !endTime){
         alert("Fill all fields");
         return;
     }
+  // For new students, require a password of minimum length
+  if(editingId === null) {
+    if(!password || password.length < 6) {
+      alert('Password is required for new students and must be at least 6 characters');
+      return;
+    }
+  } else {
+    // For updates, if password provided ensure minimum length
+    if(password && password.length > 0 && password.length < 6) {
+      alert('If setting a new password it must be at least 6 characters');
+      return;
+    }
+  }
   // Normalize and validate times (accept common inputs like "9:00", "9am", "13:00")
   const normalizedStart = normalizeTime(startTime);
   const normalizedEnd = normalizeTime(endTime);
@@ -350,31 +381,28 @@ async function saveStudent(){
                 body: JSON.stringify({
                   firstName,
                   lastName,
+                  username,
                   contactNo,
-                  course,
-                  section,
-                  startTime: normalizedStart,
-                  endTime: normalizedEnd
+              course,
+              section,
+              startTime: normalizedStart,
+              endTime: normalizedEnd,
+              password
                 })
             });
         } else {
             // UPDATE STUDENT
             const token = localStorage.getItem('token');
-            response = await fetch(`${API_BASE}/students/${editingId}`, {
+            const body = { firstName, lastName, username, contactNo, course, section, startTime: normalizedStart, endTime: normalizedEnd };
+          if(password && password.length >= 6) body.password = password;
+
+          response = await fetch(`${API_BASE}/students/${editingId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': 'Bearer ' + token
                 },
-                body: JSON.stringify({
-                  firstName,
-                  lastName,
-                  contactNo,
-                  course,
-                  section,
-                  startTime,
-                  endTime
-                })
+            body: JSON.stringify(body)
             });
         }
 
@@ -468,21 +496,25 @@ let currentEditingStudentId = null;
 
 function openEditStudentModal(studentData) {
   currentEditingStudentId = studentData.id;
-  document.getElementById('editStudentFirstName').value = studentData.firstName;
-  document.getElementById('editStudentLastName').value = studentData.lastName;
-  document.getElementById('editStudentContactNo').value = studentData.contactNo;
-  document.getElementById('editStudentCourse').value = studentData.course;
-  document.getElementById('editStudentSection').value = studentData.section;
-  document.getElementById('editStudentStartTime').value = studentData.startTime || '';
-  document.getElementById('editStudentEndTime').value = studentData.endTime || '';
-  document.getElementById('editStudentMessage').textContent = '';
+  const f = id => document.getElementById(id);
+  const elFirst = f('editStudentFirstName'); if(elFirst) elFirst.value = studentData.firstName || '';
+  const elLast = f('editStudentLastName'); if(elLast) elLast.value = studentData.lastName || '';
+  const elContact = f('editStudentContactNo'); if(elContact) elContact.value = studentData.contactNo || '';
+  const elCourse = f('editStudentCourse'); if(elCourse) elCourse.value = studentData.course || '';
+  const elSection = f('editStudentSection'); if(elSection) elSection.value = studentData.section || '';
+  const elStart = f('editStudentStartTime'); if(elStart) elStart.value = studentData.startTime || '';
+  const elEnd = f('editStudentEndTime'); if(elEnd) elEnd.value = studentData.endTime || '';
+  const elMsg = f('editStudentMessage'); if(elMsg) elMsg.textContent = '';
+  const elPwd = f('editStudentPassword'); if(elPwd) elPwd.value = '';
+  const elUser = f('editStudentUsername'); if(elUser) elUser.value = studentData.username || '';
   
   // Find and select the matching section in the dropdown
   const editSectionDropdown = document.getElementById('editSectionDropdown');
   if(editSectionDropdown && studentData.course && studentData.section) {
     const matchingSection = sections.find(s => s.course === studentData.course && s.sectionName === studentData.section);
     if(matchingSection) {
-      editSectionDropdown.value = matchingSection.id;
+      // dropdown option values use sectionName (populateSectionDropdowns sets opt.value = sec.sectionName)
+      editSectionDropdown.value = matchingSection.sectionName;
     }
   }
   
@@ -546,16 +578,30 @@ function handleEditStudentFormSubmit(e) {
   document.getElementById('editStudentStartTime').value = normalizedStart;
   document.getElementById('editStudentEndTime').value = normalizedEnd;
 
-  submitEditStudentForm(firstName, lastName, contactNo, course, section, token, currentEditingStudentId, normalizedStart, normalizedEnd);
+  const newPassword = document.getElementById('editStudentPassword') ? document.getElementById('editStudentPassword').value.trim() : '';
+  if(newPassword && newPassword.length > 0 && newPassword.length < 6) {
+    setEditStudentMessage('If setting a new password it must be at least 6 characters', 'error');
+    return;
+  }
+
+  const editUsername = document.getElementById('editStudentUsername') ? document.getElementById('editStudentUsername').value.trim() : '';
+  if(!editUsername) {
+    setEditStudentMessage('Username is required', 'error');
+    return;
+  }
+
+  submitEditStudentForm(firstName, lastName, contactNo, course, section, token, currentEditingStudentId, normalizedStart, normalizedEnd, newPassword, editUsername);
 }
 
-async function submitEditStudentForm(firstName, lastName, contactNo, course, section, token, studentId) {
+async function submitEditStudentForm(firstName, lastName, contactNo, course, section, token, studentId, normalizedStart, normalizedEnd, newPassword, editUsername) {
   try {
     setEditStudentMessage('Updating student...', 'loading');
     
-    const startTime = document.getElementById('editStudentStartTime').value.trim();
-    const endTime = document.getElementById('editStudentEndTime').value.trim();
+    const startTime = normalizedStart || document.getElementById('editStudentStartTime').value.trim();
+    const endTime = normalizedEnd || document.getElementById('editStudentEndTime').value.trim();
     const body = { firstName, lastName, contactNo, course, section, startTime, endTime };
+    if(newPassword && newPassword.length >= 6) body.password = newPassword;
+    if(editUsername) body.username = editUsername;
 
     const res = await fetch(`${API_BASE}/students/${studentId}`, {
       method: 'PUT',
@@ -587,6 +633,8 @@ function clearForm(){
     document.getElementById("firstName").value = "";
     document.getElementById("lastName").value = "";
     document.getElementById("contactNo").value = "";
+  if(document.getElementById('password')) document.getElementById('password').value = '';
+  if(document.getElementById('username')) document.getElementById('username').value = '';
     document.getElementById("course").value = "";
     document.getElementById("section").value = "";
   document.getElementById("startTime").value = "";
@@ -714,17 +762,17 @@ function fillStudentDetailsFromSection(dropdownId){
     }
 
     if(dropdownId === 'sectionDropdown') {
-        document.getElementById('course').value = course;
-        document.getElementById('section').value = sectionName;
-        document.getElementById('subject').value = subject;
-        document.getElementById('startTime').value = startTime;
-        document.getElementById('endTime').value = endTime;
+      const elCourse = document.getElementById('course'); if(elCourse) elCourse.value = course;
+      const elSection = document.getElementById('section'); if(elSection) elSection.value = sectionName;
+      const elSubject = document.getElementById('subject'); if(elSubject) elSubject.value = subject;
+      const elStart = document.getElementById('startTime'); if(elStart) elStart.value = startTime;
+      const elEnd = document.getElementById('endTime'); if(elEnd) elEnd.value = endTime;
     } else if(dropdownId === 'editSectionDropdown') {
-        document.getElementById('editStudentCourse').value = course;
-        document.getElementById('editStudentSection').value = sectionName;
-        document.getElementById('editStudentSubject').value = subject;
-        document.getElementById('editStudentStartTime').value = startTime;
-        document.getElementById('editStudentEndTime').value = endTime;
+      const elCourse = document.getElementById('editStudentCourse'); if(elCourse) elCourse.value = course;
+      const elSection = document.getElementById('editStudentSection'); if(elSection) elSection.value = sectionName;
+      const elSubject = document.getElementById('editStudentSubject'); if(elSubject) elSubject.value = subject;
+      const elStart = document.getElementById('editStudentStartTime'); if(elStart) elStart.value = startTime;
+      const elEnd = document.getElementById('editStudentEndTime'); if(elEnd) elEnd.value = endTime;
     }
 }
 

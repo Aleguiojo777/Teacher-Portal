@@ -465,8 +465,11 @@ tr:hover {
   background-color: white;
   padding: 0;
   border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
+  width: 95%;
+  max-width: 760px;
+  /* Keep modal usable on short viewports */
+  max-height: 90vh;
+  overflow: hidden;
   box-shadow: 0 20px 25px rgba(0, 0, 0, 0.15);
 }
 
@@ -501,6 +504,21 @@ tr:hover {
 
 .modal-content form {
   padding: 24px;
+}
+
+/* Grid for modal form fields to avoid very long vertical stacks */
+.modal-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 18px;
+  align-items: start;
+}
+
+/* Make modal body scrollable while keeping header/actions visible */
+.modal-body-scrollable {
+  max-height: calc(90vh - 160px);
+  overflow-y: auto;
+  padding-right: 6px; /* avoid hidden scrollbar overlapping fields */
 }
 
 .modal-form-group {
@@ -622,7 +640,8 @@ tr:hover td { background: #f1f7fb; }
 
 @media (max-width: 600px) {
   .form-layout .form-grid { grid-template-columns: 1fr; }
-  .card h2 { font-size: 18px; }
+  .form-layout .form-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-form-grid { grid-template-columns: 1fr 1fr; }
   .sidebar-toggle { top: 10px; left: 10px; }
 }
 
@@ -780,6 +799,7 @@ tr:hover td { background: #f1f7fb; }
 /* Responsive tweaks */
 @media (max-width: 900px) {
   .container {
+  .modal-form-grid { grid-template-columns: 1fr; }
     padding: 0 16px;
   }
 

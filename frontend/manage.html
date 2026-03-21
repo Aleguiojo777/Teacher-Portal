@@ -76,43 +76,51 @@
     </div>
     <div id="editStudentMessage" class="message"></div>
     <form id="studentEditForm">
-      <div class="modal-form-group">
-        <label for="editStudentFirstName">First Name:</label>
-        <input type="text" id="editStudentFirstName" placeholder="First Name" required>
-      </div>
-      <div class="modal-form-group">
-        <label for="editStudentLastName">Last Name:</label>
-        <input type="text" id="editStudentLastName" placeholder="Last Name" required>
-      </div>
-      <div class="modal-form-group">
-        <label for="editStudentContactNo">Contact No:</label>
-        <input type="text" id="editStudentContactNo" placeholder="Contact No." required>
-      </div>
-      <div class="modal-form-group">
-        <label for="editSectionDropdown">Section:</label>
-        <select id="editSectionDropdown" required>
-          <option value="">Select Section</option>
-        </select>
-      </div>
-      <div class="modal-form-group">
-        <label for="editStudentCourse">Course:</label>
-        <input type="text" id="editStudentCourse" placeholder="Course" readonly>
-      </div>
-      <div class="modal-form-group">
-        <label for="editStudentSection">Section:</label>
-        <input type="text" id="editStudentSection" placeholder="Section" readonly>
-      </div>
-      <div class="modal-form-group">
-        <label for="editStudentSubject">Subject:</label>
-        <input type="text" id="editStudentSubject" placeholder="Subject" readonly>
-      </div>
-      <div class="modal-form-group">
-        <label for="editStudentStartTime">Start Time:</label>
-        <input type="text" id="editStudentStartTime" placeholder="Start Time" readonly>
-      </div>
-      <div class="modal-form-group">
-        <label for="editStudentEndTime">End Time:</label>
-        <input type="text" id="editStudentEndTime" placeholder="End Time" readonly>
+      <div class="modal-body-scrollable">
+        <div class="modal-form-grid">
+          <div class="modal-form-group">
+            <label for="editStudentFirstName">First Name:</label>
+            <input type="text" id="editStudentFirstName" placeholder="First Name" required>
+          </div>
+          <div class="modal-form-group">
+            <label for="editStudentLastName">Last Name:</label>
+            <input type="text" id="editStudentLastName" placeholder="Last Name" required>
+          </div>
+          <div class="modal-form-group">
+            <label for="editStudentContactNo">Contact No:</label>
+            <input type="text" id="editStudentContactNo" placeholder="Contact No." required>
+          </div>
+          <div class="modal-form-group">
+            <label for="editStudentUsername">Username:</label>
+            <input type="text" id="editStudentUsername" placeholder="Username" required>
+          </div>
+          <div class="modal-form-group">
+            <label for="editSectionDropdown">Section:</label>
+            <select id="editSectionDropdown" required>
+              <option value="">Select Section</option>
+            </select>
+          </div>
+          <div class="modal-form-group">
+            <label for="editStudentCourse">Course:</label>
+            <input type="text" id="editStudentCourse" placeholder="Course" readonly>
+          </div>
+          <div class="modal-form-group">
+            <label for="editStudentSubject">Subject:</label>
+            <input type="text" id="editStudentSubject" placeholder="Subject" readonly>
+          </div>
+          <div class="modal-form-group">
+            <label for="editStudentStartTime">Start Time:</label>
+            <input type="text" id="editStudentStartTime" placeholder="Start Time" readonly>
+          </div>
+          <div class="modal-form-group">
+            <label for="editStudentEndTime">End Time:</label>
+            <input type="text" id="editStudentEndTime" placeholder="End Time" readonly>
+          </div>
+          <div class="modal-form-group">
+            <label for="editStudentPassword">Password (leave blank to keep)</label>
+            <input type="password" id="editStudentPassword" placeholder="New password (optional)">
+          </div>
+        </div>
       </div>
       <div class="modal-actions">
         <button type="submit" class="modal-btn save-btn">Save Changes</button>
@@ -125,7 +133,7 @@
 <div class="card">
   <h2>Add / Update Student</h2>
 
-  <div class="form-layout-left-btn">
+    <div class="form-layout-left-btn">
     <div class="form-grid">
       <div>
         <label for="firstName">First Name</label>
@@ -136,8 +144,16 @@
         <input id="lastName" placeholder="Last Name" required>
       </div>
       <div>
+        <label for="username">Username</label>
+        <input id="username" placeholder="Username" required>
+      </div>
+      <div>
         <label for="contactNo">Contact No.</label>
         <input id="contactNo" placeholder="Contact No." required>
+      </div>
+      <div>
+        <label for="password">Password</label>
+        <input id="password" type="password" placeholder="Password (min 6 chars)">
       </div>
       <div>
         <label for="sectionDropdown">Section</label>

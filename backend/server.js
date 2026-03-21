@@ -154,6 +154,7 @@ function initializeDatabase() {
     const hasStart = cols && cols.some(c => c.name === 'startTime');
     const hasEnd = cols && cols.some(c => c.name === 'endTime');
     const hasTimeOfClass = cols && cols.some(c => c.name === 'timeOfClass');
+    const hasUsername = cols && cols.some(c => c.name === 'username');
 
     if (!hasStart) {
       db.run('ALTER TABLE students ADD COLUMN startTime TEXT', (alterErr) => {
@@ -165,6 +166,19 @@ function initializeDatabase() {
       db.run('ALTER TABLE students ADD COLUMN endTime TEXT', (alterErr) => {
         if (alterErr) console.error('Error adding endTime column:', alterErr.message);
         else console.log('Migrated students table: added endTime column');
+      });
+    }
+
+    if (!hasUsername) {
+      db.run('ALTER TABLE students ADD COLUMN username TEXT', (alterErr) => {
+        if (alterErr) console.error('Error adding username column:', alterErr.message);
+        else {
+          console.log('Migrated students table: added username column');
+          // create unique index to enforce username uniqueness
+          db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_students_username ON students(username)', (ixErr) => {
+            if (ixErr) console.error('Error creating username index:', ixErr.message);
+          });
+        }
       });
     }
 
@@ -481,10 +495,10 @@ app.get('/api/students/:id', verifyToken, (req, res) => {
 
 // POST - Add new student
 app.post('/api/students', verifyToken, (req, res) => {
-  const { firstName, lastName, contactNo, course, section, startTime, endTime } = req.body;
+  const { firstName, lastName, username, contactNo, course, section, startTime, endTime } = req.body;
   const createdBy = req.adminId;
 
-  if (!firstName || !lastName || !contactNo || !course || !section || !startTime || !endTime) {
+  if (!firstName || !lastName || !username || !contactNo || !course || !section || !startTime || !endTime) {
     return res.status(400).json({ error: 'All fields are required' });
   }
 
@@ -494,15 +508,19 @@ app.post('/api/students', verifyToken, (req, res) => {
     return res.status(400).json({ error: 'Invalid time format. Use hh:mm AM or hh:mm PM' });
   }
 
-  const sql = 'INSERT INTO students (firstName, lastName, contactNo, course, section, startTime, endTime, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-  db.run(sql, [firstName, lastName, contactNo, course, section, startTime.trim(), endTime.trim(), createdBy], function(err) {
+  const sql = 'INSERT INTO students (firstName, lastName, username, contactNo, course, section, startTime, endTime, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+  db.run(sql, [firstName, lastName, username.trim(), contactNo, course, section, startTime.trim(), endTime.trim(), createdBy], function(err) {
     if (err) {
-      res.status(500).json({ error: err.message });
+      if (err.message && err.message.includes('UNIQUE constraint failed')) {
+        return res.status(400).json({ error: 'Username already exists' });
+      }
+      return res.status(500).json({ error: err.message });
     } else {
       res.json({
         id: this.lastID,
         firstName,
         lastName,
+        username,
         contactNo,
         course,
         section,
@@ -583,23 +601,26 @@ app.put('/api/students/:id', verifyToken, (req, res) => {
 });
 
 // DELETE - Remove student
-app.delete('/api/students/:id', verifyToken, (req, res) => {
-  const { id } = req.params;
+app.put('/api/students/:id', verifyToken, (req, res) => {
+  const { firstName, lastName, username, contactNo, course, section, endTime } = req.body;
+  const id = req.params.id;
 
-  // Check if user is admin or teacher
-  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
+  if (!firstName || !lastName || !username || !contactNo || !course || !section || !endTime) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  const sql = 'UPDATE students SET firstName = ?, lastName = ?, username = ?, contactNo = ?, course = ?, section = ?, endTime = ? WHERE id = ?';
+  db.run(sql, [firstName, lastName, username.trim(), contactNo, course, section, endTime.trim(), id], function(err) {
     if (err) {
+      if (err.message && err.message.includes('UNIQUE constraint failed')) {
+        return res.status(400).json({ error: 'Username already exists' });
+      }
       return res.status(500).json({ error: err.message });
+    } else {
+      res.json({ message: 'Student updated successfully' });
     }
-    
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    const isAdmin = Number(user.isAdmin) === 1;
-    
-    // Check if student exists and if teacher has access
-    const query = isAdmin
+  });
+});
       ? 'SELECT * FROM students WHERE id = ?'
       : 'SELECT * FROM students WHERE id = ? AND createdBy = ?';
     
