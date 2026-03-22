@@ -601,48 +601,28 @@ app.put('/api/students/:id', verifyToken, (req, res) => {
 });
 
 // DELETE - Remove student
-app.put('/api/students/:id', verifyToken, (req, res) => {
-  const { firstName, lastName, username, contactNo, course, section, endTime } = req.body;
-  const id = req.params.id;
+app.delete('/api/students/:id', verifyToken, (req, res) => {
+  const { id } = req.params;
 
-  if (!firstName || !lastName || !username || !contactNo || !course || !section || !endTime) {
-    return res.status(400).json({ error: 'All fields are required' });
-  }
+  db.get('SELECT isAdmin FROM admins WHERE id = ?', [req.adminId], (err, user) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!user) return res.status(401).json({ error: 'User not found' });
 
-  const sql = 'UPDATE students SET firstName = ?, lastName = ?, username = ?, contactNo = ?, course = ?, section = ?, endTime = ? WHERE id = ?';
-  db.run(sql, [firstName, lastName, username.trim(), contactNo, course, section, endTime.trim(), id], function(err) {
-    if (err) {
-      if (err.message && err.message.includes('UNIQUE constraint failed')) {
-        return res.status(400).json({ error: 'Username already exists' });
-      }
-      return res.status(500).json({ error: err.message });
-    } else {
-      res.json({ message: 'Student updated successfully' });
-    }
-  });
-});
+    const isAdmin = Number(user.isAdmin) === 1;
+    const query = isAdmin
       ? 'SELECT * FROM students WHERE id = ?'
       : 'SELECT * FROM students WHERE id = ? AND createdBy = ?';
-    
+
     const params = isAdmin ? [id] : [id, req.adminId];
-    
+
     db.get(query, params, (err, student) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      
-      if (!student) {
-        return res.status(404).json({ error: 'Student not found or access denied' });
-      }
+      if (err) return res.status(500).json({ error: err.message });
+      if (!student) return res.status(404).json({ error: 'Student not found or access denied' });
 
       db.run('DELETE FROM students WHERE id = ?', [id], function(err) {
-        if (err) {
-          res.status(500).json({ error: err.message });
-        } else if (this.changes === 0) {
-          res.status(404).json({ error: 'Student not found' });
-        } else {
-          res.json({ message: 'Student deleted successfully' });
-        }
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: 'Student not found' });
+        res.json({ message: 'Student deleted successfully' });
       });
     });
   });
