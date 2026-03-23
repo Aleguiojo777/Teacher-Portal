@@ -10,7 +10,7 @@ window.API_BASE = window.API_BASE || (function(){
     try{
         const origin = window.location.origin;
         const host = window.location.hostname;
-        if(host === 'localhost' || host === '127.0.0.1') return 'http://localhost:3000/api';
+        // Use same-origin API path so frontend works regardless of backend port
         return origin + '/api';
     }catch(e){
         return 'http://localhost:3000/api';
@@ -197,21 +197,36 @@ async function loadAttendanceForDate(dateStr){
 
 function updateHomeStatistics(attendanceRecords) {
     try {
-        let presentCount = 0, absentCount = 0, lateCount = 0;
-        
-        if(students.length === 0) {
-            // No students, set all to 0
-            document.getElementById("presentCount").textContent = 0;
-            document.getElementById("presentPercentage").textContent = "0%";
-            document.getElementById("absentCount").textContent = 0;
-            document.getElementById("absentPercentage").textContent = "0%";
-            document.getElementById("lateCount").textContent = 0;
-            document.getElementById("latePercentage").textContent = "0%";
-            document.getElementById("totalCount").textContent = 0;
-            document.getElementById("totalPercentage").textContent = "0%";
-            return;
-        }
+    let presentCount = 0, absentCount = 0, lateCount = 0;
 
+    // Fetch UI elements once and guard against pages that don't include the home stats
+    const presentEl = document.getElementById("presentCount");
+    const presentPctEl = document.getElementById("presentPercentage");
+    const absentEl = document.getElementById("absentCount");
+    const absentPctEl = document.getElementById("absentPercentage");
+    const lateEl = document.getElementById("lateCount");
+    const latePctEl = document.getElementById("latePercentage");
+    const totalEl = document.getElementById("totalCount");
+    const totalPctEl = document.getElementById("totalPercentage");
+
+    // If none of the expected elements exist, skip updating the DOM entirely
+    if(!(presentEl || presentPctEl || absentEl || absentPctEl || lateEl || latePctEl || totalEl || totalPctEl)) {
+      console.debug('[DEBUG] Home stats elements not present on this page; skipping DOM update');
+      return;
+    }
+
+    if(students.length === 0) {
+      // No students, set all to 0 (but only if elements exist)
+      if(presentEl) presentEl.textContent = 0;
+      if(presentPctEl) presentPctEl.textContent = "0%";
+      if(absentEl) absentEl.textContent = 0;
+      if(absentPctEl) absentPctEl.textContent = "0%";
+      if(lateEl) lateEl.textContent = 0;
+      if(latePctEl) latePctEl.textContent = "0%";
+      if(totalEl) totalEl.textContent = 0;
+      if(totalPctEl) totalPctEl.textContent = "0%";
+      return;
+    }
         // Optionally filter by selected section on the Home view
         const homeSectionEl = document.getElementById('homeSectionSelect');
         const selectedSection = homeSectionEl && homeSectionEl.value ? homeSectionEl.value : null;
@@ -233,22 +248,7 @@ function updateHomeStatistics(attendanceRecords) {
         const absentPct = total > 0 ? Math.round((absentCount / total) * 100) : 0;
         const latePct = total > 0 ? Math.round((lateCount / total) * 100) : 0;
         
-        // Update UI - only when the home statistics elements exist (some pages don't include them)
-        const presentEl = document.getElementById("presentCount");
-        const presentPctEl = document.getElementById("presentPercentage");
-        const absentEl = document.getElementById("absentCount");
-        const absentPctEl = document.getElementById("absentPercentage");
-        const lateEl = document.getElementById("lateCount");
-        const latePctEl = document.getElementById("latePercentage");
-        const totalEl = document.getElementById("totalCount");
-        const totalPctEl = document.getElementById("totalPercentage");
-
-        // If none of the expected elements exist, skip updating the DOM.
-        if(!(presentEl || presentPctEl || absentEl || absentPctEl || lateEl || latePctEl || totalEl || totalPctEl)) {
-          console.debug('[DEBUG] Home stats elements not present on this page; skipping DOM update');
-          return;
-        }
-
+        // Update UI using the previously-fetched elements (guarded earlier)
         if(presentEl) presentEl.textContent = presentCount;
         if(presentPctEl) presentPctEl.textContent = presentPct + "%";
         if(absentEl) absentEl.textContent = absentCount;

@@ -305,11 +305,15 @@ const loginLimiter = rateLimit({
 
 // Admin Login endpoint
 app.post('/api/admin/login', loginLimiter, async (req, res) => {
+  logger.info('[DEBUG] /api/admin/login - handler entered');
   try {
     const { email, password } = req.body;
 
+    logger.info('[DEBUG] /api/admin/login - received body:', { email: email && String(email).slice(0, 60) });
+
     // Validate input
     if (!email || !password) {
+      console.log('[DEBUG] /api/admin/login - missing email or password');
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
@@ -318,40 +322,50 @@ app.post('/api/admin/login', loginLimiter, async (req, res) => {
     const attempt = loginAttempts.get(key);
     const now = Date.now();
     if (attempt && attempt.lockedUntil && attempt.lockedUntil > now) {
-      logger.warn(`Locked login attempt for ${key}`);
+    logger.warn(`Locked login attempt for ${key}`);
+    logger.info('[DEBUG] /api/admin/login - account locked until ' + new Date(attempt.lockedUntil).toISOString());
       return res.status(429).json({ error: 'Account locked due to repeated failed login attempts. Try again later.' });
     }
 
+    logger.info('[DEBUG] /api/admin/login - querying DB for admin');
     // Find admin by email
     db.get('SELECT * FROM admins WHERE email = ?', [email], async (err, admin) => {
       if (err) {
+        logger.error('[DEBUG] /api/admin/login - db.get error: ' + (err && err.message));
         return res.status(500).json({ error: err.message });
       }
 
-        if (!admin) {
-          // increment attempt counter by email
-          const prev = loginAttempts.get(key) || { count: 0, firstAttempt: now };
-          prev.count = (prev.count || 0) + 1;
-          if (!prev.firstAttempt) prev.firstAttempt = now;
-          // reset window
-          if (now - prev.firstAttempt > WINDOW_MS) {
-            prev.count = 1;
-            prev.firstAttempt = now;
-          }
-          if (prev.count >= MAX_ATTEMPTS) {
-            prev.lockedUntil = now + LOCK_DURATION_MS;
-            logger.warn(`Account locked for ${key} due to repeated failed attempts`);
-            // send alert (best-effort)
-            try { alerts.sendLockoutEmail(key, req.ip); } catch (e) { logger.error('Alert send failed: ' + (e && e.message)); }
-          }
-          loginAttempts.set(key, prev);
-          return res.status(401).json({ error: 'Invalid email or password' });
+      logger.info('[DEBUG] /api/admin/login - db.get returned admin: ' + (!!admin));
+
+      if (!admin) {
+        // increment attempt counter by email
+        const prev = loginAttempts.get(key) || { count: 0, firstAttempt: now };
+        prev.count = (prev.count || 0) + 1;
+        if (!prev.firstAttempt) prev.firstAttempt = now;
+        // reset window
+        if (now - prev.firstAttempt > WINDOW_MS) {
+          prev.count = 1;
+          prev.firstAttempt = now;
         }
+        if (prev.count >= MAX_ATTEMPTS) {
+          prev.lockedUntil = now + LOCK_DURATION_MS;
+          logger.warn(`Account locked for ${key} due to repeated failed attempts`);
+          // send alert (best-effort)
+          try { alerts.sendLockoutEmail(key, req.ip); } catch (e) { logger.error('Alert send failed: ' + (e && e.message)); }
+        }
+        loginAttempts.set(key, prev);
+        logger.info('[DEBUG] /api/admin/login - admin not found, returning 401');
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
 
       // Compare passwords
       try {
+        logger.info('[DEBUG] /api/admin/login - about to compare password hashes');
+        const beforeCompare = Date.now();
         const validPassword = await bcrypt.compare(password, admin.password);
-        
+        const afterCompare = Date.now();
+        logger.info('[DEBUG] /api/admin/login - bcrypt.compare completed - valid=' + validPassword + ' durMs=' + (afterCompare - beforeCompare));
+
         if (!validPassword) {
           // increment attempt counter
           const prev = loginAttempts.get(key) || { count: 0, firstAttempt: now };
@@ -367,12 +381,15 @@ app.post('/api/admin/login', loginLimiter, async (req, res) => {
             try { alerts.sendLockoutEmail(key, req.ip); } catch (e) { logger.error('Alert send failed: ' + (e && e.message)); }
           }
           loginAttempts.set(key, prev);
+          logger.info('[DEBUG] /api/admin/login - invalid password, returning 401');
           return res.status(401).json({ error: 'Invalid email or password' });
         }
 
         // Login successful
         // reset attempts on success
         if (loginAttempts.has(key)) loginAttempts.delete(key);
+        const token = generateToken(admin.id);
+        logger.info('[DEBUG] /api/admin/login - login successful, sending token');
         res.status(200).json({
           success: true,
           message: 'Login successful',
@@ -383,15 +400,15 @@ app.post('/api/admin/login', loginLimiter, async (req, res) => {
             isAdmin: admin.isAdmin,
             isMain: admin.isMain || 0
           },
-          token: generateToken(admin.id)
+          token
         });
       } catch (bcryptError) {
-        console.error('Password comparison error:', bcryptError);
+        logger.error('[DEBUG] /api/admin/login - Password comparison error: ' + (bcryptError && (bcryptError.message || bcryptError)));
         res.status(500).json({ error: 'Error during authentication' });
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('[DEBUG] /api/admin/login - handler error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

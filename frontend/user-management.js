@@ -4,7 +4,7 @@ window.API_BASE = window.API_BASE || (function(){
   try{
     const origin = window.location.origin;
     const host = window.location.hostname;
-    if(host === 'localhost' || host === '127.0.0.1') return 'http://localhost:3000/api';
+    // Use same-origin API path so frontend works regardless of backend port
     return origin + '/api';
   }catch(e){
     return 'http://localhost:3000/api';
