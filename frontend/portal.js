@@ -337,8 +337,26 @@ async function saveStudent(){
     const endTime = document.getElementById("endTime").value;
     const btn = document.getElementById("studentBtn");
 
-  if(!firstName || !lastName || !username || !contactNo || !course || !section || !startTime || !endTime){
-        alert("Fill all fields");
+  // DEBUG: log field values to help trace why validation may fail
+  try {
+    console.debug('[DEBUG] saveStudent values:', {
+      firstName, lastName, username, contactNo, course, section, startTime, endTime
+    });
+  } catch(e) { console.debug('[DEBUG] saveStudent logging failed', e); }
+
+  // Check and report which fields are missing to make client-side validation clearer
+  const missing = [];
+  if(!firstName) missing.push('firstName');
+  if(!lastName) missing.push('lastName');
+  if(!username) missing.push('username');
+  if(!contactNo) missing.push('contactNo');
+  if(!course) missing.push('course');
+  if(!section) missing.push('section');
+  if(!startTime) missing.push('startTime');
+  if(!endTime) missing.push('endTime');
+  if(missing.length){
+        console.warn('[WARN] saveStudent missing fields:', missing);
+        alert('Fill all fields: missing -> ' + missing.join(', '));
         return;
     }
   // For new students, require a password of minimum length
