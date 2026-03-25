@@ -24,3 +24,11 @@ Quick start (using Android emulator running on the same machine):
 Notes:
 - The app assumes the Teacher Portal backend is running on the same host as the emulator and reachable at http://10.0.2.2:3000. If your backend is reachable at a different host/IP, edit `App.js` and change `BACKEND_BASE`.
 - Admins must create students with a username and password via the Teacher Portal admin interface (the backend was patched to accept and store student passwords and to expose student login/attendance/notifications endpoints).
+
+Logo
+----
+- To show your brand logo in the app header, provide a remote URL by editing `App.js` and setting the `LOGO_URL` constant near the top of the file. Example:
+
+   const LOGO_URL = 'https://example.com/my-logo.png'
+
+- If you'd rather bundle a local image inside the app, add it to an assets folder and either host it locally (serve via a URL) or replace the header code to require a static asset. If you want, I can add a bundled placeholder image for you—tell me the image file to use.

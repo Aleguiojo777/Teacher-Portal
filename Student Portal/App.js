@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView, View, Text, TextInput, Button, FlatList, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { SafeAreaView, View, Text, TextInput, FlatList, StyleSheet, Alert, TouchableOpacity, StatusBar, Image } from 'react-native';
 
 // Change this to your backend host when not using emulator
 const BACKEND_BASE = 'http://10.0.2.2:3000';
+// Optionally provide a logo URL (remote). If you want to use a local asset,
+// put the file on a server or update this value to a reachable URL.
+// Example: const LOGO_URL = 'https://example.com/my-logo.png'
+const LOGO_URL = null;
 
 export default function App() {
   const [username, setUsername] = useState('');
@@ -28,7 +32,6 @@ export default function App() {
       } else {
         setToken(data.token);
         setStudent(data.student);
-        // fetch initial data
         fetchAttendance(data.token);
         fetchNotifications(data.token);
       }
@@ -74,67 +77,129 @@ export default function App() {
     setPassword('');
   };
 
+  // Minimal header matching portal style
+  const Header = () => (
+    <View style={styles.header}>
+      {LOGO_URL ? (
+        <View style={styles.logoRow}>
+          <Image source={{ uri: LOGO_URL }} style={styles.logoImage} resizeMode="contain" />
+          <View>
+            <Text style={styles.logoTitle}>Teacher Portal</Text>
+            <Text style={styles.logoSub}>Student</Text>
+          </View>
+        </View>
+      ) : (
+        <View>
+          <Text style={styles.logoTitle}>Teacher Portal</Text>
+          <Text style={styles.logoSub}>Student</Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const LoginCard = () => (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Student Login</Text>
+      <TextInput placeholder="Username" value={username} onChangeText={setUsername} style={styles.input} autoCapitalize="none" placeholderTextColor="#64748b" />
+      <TextInput placeholder="Password" value={password} onChangeText={setPassword} style={styles.input} secureTextEntry placeholderTextColor="#64748b" />
+      <TouchableOpacity style={[styles.primaryButton, loading && styles.buttonDisabled]} onPress={login} disabled={loading}>
+        <Text style={styles.primaryButtonText}>{loading ? 'Logging in...' : 'Login'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   if (!token) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.title}>Student Portal</Text>
-        <TextInput placeholder="Username" value={username} onChangeText={setUsername} style={styles.input} autoCapitalize="none" />
-        <TextInput placeholder="Password" value={password} onChangeText={setPassword} style={styles.input} secureTextEntry />
-        <Button title={loading ? 'Logging in...' : 'Login'} onPress={login} />
+        <StatusBar backgroundColor="#f6f9fb" barStyle="dark-content" />
+        <Header />
+        <LoginCard />
       </SafeAreaView>
     );
   }
 
+  const renderNotification = ({ item }) => (
+    <View style={styles.noticeCard}>
+      <Text style={styles.noticeText}>{item.note}</Text>
+    </View>
+  );
+
+  const renderAttendance = ({ item }) => {
+    const statusStyle = item.status === 'Present' ? styles.presentBadge : (item.status === 'Late' ? styles.lateBadge : styles.absentBadge);
+    return (
+      <View style={styles.attCard}>
+        <View style={{flex:1}}>
+          <Text style={styles.attDate}>{item.attendanceDate}</Text>
+          <Text style={styles.attMeta}>Recorded at: {item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}</Text>
+        </View>
+        <View style={[styles.badge, statusStyle]}>
+          <Text style={styles.badgeText}>{item.status}</Text>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Welcome {student ? `${student.firstName}` : ''}</Text>
-      <View style={styles.section}>
+      <StatusBar backgroundColor="#f6f9fb" barStyle="dark-content" />
+      <Header />
+
+      <View style={styles.main}>
+        <View style={styles.topRow}>
+          <View style={styles.welcomeCard}>
+            <Text style={styles.welcomeName}>{student ? `${student.firstName} ${student.lastName}` : ''}</Text>
+            <Text style={styles.welcomeSub}>{student ? `${student.course} • ${student.section}` : ''}</Text>
+          </View>
+          <TouchableOpacity style={styles.logoutBtn} onPress={logout}><Text style={styles.logoutText}>Logout</Text></TouchableOpacity>
+        </View>
+
         <Text style={styles.sectionTitle}>Notifications</Text>
-        {notifications.length === 0 ? (
-          <Text style={styles.empty}>No recent alerts</Text>
-        ) : (
-          <FlatList data={notifications} keyExtractor={(i) => String(i.id)} renderItem={({ item }) => (
-            <View style={styles.item}>
-              <Text style={styles.itemText}>{item.note}</Text>
-            </View>
-          )} />
-        )}
-      </View>
+        {notifications.length === 0 ? <Text style={styles.empty}>No recent alerts</Text> : <FlatList data={notifications} keyExtractor={(i) => String(i.id)} renderItem={renderNotification} />}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Attendance History</Text>
-        {attendance.length === 0 ? (
-          <Text style={styles.empty}>No attendance records</Text>
-        ) : (
-          <FlatList data={attendance} keyExtractor={(i) => String(i.id)} renderItem={({ item }) => (
-            <View style={styles.item}>
-              <Text style={styles.itemText}>{item.attendanceDate} — {item.status}</Text>
-            </View>
-          )} />
-        )}
-      </View>
+        <Text style={[styles.sectionTitle, {marginTop:16}]}>Attendance History</Text>
+        {attendance.length === 0 ? <Text style={styles.empty}>No attendance records</Text> : <FlatList data={attendance} keyExtractor={(i) => String(i.id)} renderItem={renderAttendance} />}
 
-      <View style={{flexDirection:'row', justifyContent:'space-between', marginTop:12}}>
-        <TouchableOpacity style={styles.button} onPress={() => { fetchAttendance(); fetchNotifications(); }}>
-          <Text style={styles.buttonText}>Refresh</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, {backgroundColor:'#c33'}]} onPress={logout}>
-          <Text style={styles.buttonText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.ghostButton} onPress={() => { fetchAttendance(); fetchNotifications(); }}>
+            <Text style={styles.ghostText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  title: { fontSize: 24, fontWeight: '600', marginBottom: 16 },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 12, borderRadius: 6 },
-  section: { marginTop: 12, flex: 1 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
-  empty: { color: '#666' },
-  item: { padding: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  itemText: { fontSize: 14 },
-  button: { padding: 10, backgroundColor: '#007AFF', borderRadius: 6, minWidth: 120, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '600' }
+  container: { flex: 1, backgroundColor: '#f6f9fb' },
+  header: { padding: 20, paddingTop: 30, backgroundColor: 'transparent', alignItems: 'flex-start' },
+  logoTitle: { fontSize: 20, fontWeight: '700', color: '#0f172a' },
+  logoSub: { fontSize: 12, color: '#64748b', marginTop: 2 },
+  card: { margin: 16, padding: 20, backgroundColor: '#ffffff', borderRadius: 12, shadowColor: '#020617', shadowOpacity: 0.06, shadowRadius: 12, elevation: 4 },
+  cardTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b', marginBottom: 12, textAlign: 'center' },
+  input: { borderWidth: 1, borderColor: '#cbd5e1', padding: 12, marginBottom: 12, borderRadius: 8, fontSize: 14, backgroundColor: '#fff', color: '#0f172a' },
+  primaryButton: { backgroundColor: '#2563eb', padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 6 },
+  primaryButtonText: { color: '#fff', fontWeight: '700' },
+  buttonDisabled: { opacity: 0.7 },
+  main: { flex: 1, paddingHorizontal: 16, paddingBottom: 24 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  welcomeCard: { flex: 1, backgroundColor: '#ffffff', padding: 14, borderRadius: 10, marginRight: 8, shadowColor: '#020617', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  welcomeName: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
+  welcomeSub: { fontSize: 12, color: '#64748b', marginTop: 4 },
+  logoutBtn: { paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#ef4444', borderRadius: 10 },
+  logoutText: { color: '#fff', fontWeight: '700' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b', marginTop: 6, marginBottom: 6 },
+  empty: { color: '#64748b', marginBottom: 8 },
+  noticeCard: { backgroundColor: '#fff', padding: 12, marginBottom: 8, borderRadius: 8, borderColor: '#e6eef9', borderWidth: 1 },
+  noticeText: { color: '#0f172a' },
+  attCard: { backgroundColor: '#fff', padding: 12, marginBottom: 8, borderRadius: 8, borderColor: '#e6eef9', borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
+  attDate: { fontSize: 14, fontWeight: '700', color: '#0f172a' },
+  attMeta: { fontSize: 12, color: '#64748b', marginTop: 4 },
+  badge: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999 },
+  presentBadge: { backgroundColor: '#dcfce7' },
+  absentBadge: { backgroundColor: '#fee2e2' },
+  lateBadge: { backgroundColor: '#fef3c7' },
+  badgeText: { fontWeight: '700', color: '#0f172a' },
+  actionRow: { marginTop: 10, alignItems: 'flex-end' },
+  ghostButton: { padding: 10, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#cbd5e1' },
+  ghostText: { color: '#2563eb', fontWeight: '700' }
 });
