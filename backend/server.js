@@ -155,6 +155,7 @@ function initializeDatabase() {
     const hasEnd = cols && cols.some(c => c.name === 'endTime');
     const hasTimeOfClass = cols && cols.some(c => c.name === 'timeOfClass');
     const hasUsername = cols && cols.some(c => c.name === 'username');
+    const hasPassword = cols && cols.some(c => c.name === 'password');
 
     if (!hasStart) {
       db.run('ALTER TABLE students ADD COLUMN startTime TEXT', (alterErr) => {
@@ -179,6 +180,13 @@ function initializeDatabase() {
             if (ixErr) console.error('Error creating username index:', ixErr.message);
           });
         }
+      });
+    }
+
+    if (!hasPassword) {
+      db.run('ALTER TABLE students ADD COLUMN password TEXT', (alterErr) => {
+        if (alterErr) console.error('Error adding password column:', alterErr.message);
+        else console.log('Migrated students table: added password column');
       });
     }
 
@@ -442,6 +450,71 @@ function verifyToken(req, res, next) {
   }
 }
 
+// ============= STUDENT AUTH (mobile) =============
+// Generate token for student sessions
+function generateStudentToken(studentId) {
+  const payload = { studentId };
+  const secret = process.env.JWT_SECRET || 'change_this_to_a_secure_random_string_in_production_min_32_chars';
+  return jwt.sign(payload, secret, { expiresIn: '8h' });
+}
+
+// Middleware to verify student token
+function verifyStudentToken(req, res, next) {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : auth;
+
+  if (!token) return res.status(401).json({ error: 'Unauthorized: No token provided' });
+
+  try {
+    const secret = process.env.JWT_SECRET || 'change_this_to_a_secure_random_string_in_production_min_32_chars';
+    const decoded = jwt.verify(token, secret);
+    req.studentId = decoded.studentId;
+    next();
+  } catch (error) {
+    console.error('[WARN] Student JWT verification failed:', error && error.message);
+    return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
+  }
+}
+
+// Student login endpoint (used by mobile app)
+app.post('/api/student/login', (req, res) => {
+  const { username, password } = req.body || {};
+  if (!username || !password) return res.status(400).json({ error: 'Username and password are required' });
+
+  db.get('SELECT * FROM students WHERE username = ?', [username], async (err, student) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!student || !student.password) return res.status(401).json({ error: 'Invalid username or password' });
+
+    try {
+      const valid = await bcrypt.compare(password, student.password);
+      if (!valid) return res.status(401).json({ error: 'Invalid username or password' });
+
+      const token = generateStudentToken(student.id);
+      res.json({ success: true, message: 'Login successful', student: { id: student.id, firstName: student.firstName, lastName: student.lastName, username: student.username, course: student.course, section: student.section }, token });
+    } catch (compareErr) {
+      return res.status(500).json({ error: 'Error during authentication' });
+    }
+  });
+});
+
+// Get attendance history for logged-in student
+app.get('/api/student/attendance', verifyStudentToken, (req, res) => {
+  db.all('SELECT id, status, attendanceDate, recordedBy, createdAt FROM attendance WHERE studentId = ? ORDER BY attendanceDate DESC', [req.studentId], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// Notifications for absences or late marks (recent non-present records)
+app.get('/api/student/notifications', verifyStudentToken, (req, res) => {
+  db.all("SELECT id, status, attendanceDate, createdAt FROM attendance WHERE studentId = ? AND status != 'Present' ORDER BY attendanceDate DESC LIMIT 50", [req.studentId], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    // Map to simple notifications
+    const notifications = (rows || []).map(r => ({ id: r.id, date: r.attendanceDate, status: r.status, note: `${r.status} on ${r.attendanceDate}` }));
+    res.json(notifications);
+  });
+});
+
 // ============= STUDENT API ENDPOINTS =============
 
 // GET all students
@@ -512,11 +585,11 @@ app.get('/api/students/:id', verifyToken, (req, res) => {
 
 // POST - Add new student
 app.post('/api/students', verifyToken, (req, res) => {
-  const { firstName, lastName, username, contactNo, course, section, startTime, endTime } = req.body;
+  const { firstName, lastName, username, password, contactNo, course, section, startTime, endTime } = req.body;
   const createdBy = req.adminId;
 
-  if (!firstName || !lastName || !username || !contactNo || !course || !section || !startTime || !endTime) {
-    return res.status(400).json({ error: 'All fields are required' });
+  if (!firstName || !lastName || !username || !password || !contactNo || !course || !section || !startTime || !endTime) {
+    return res.status(400).json({ error: 'All fields are required and password is required' });
   }
 
   // Validate start/end time format: hh:mm AM/PM
@@ -525,28 +598,37 @@ app.post('/api/students', verifyToken, (req, res) => {
     return res.status(400).json({ error: 'Invalid time format. Use hh:mm AM or hh:mm PM' });
   }
 
-  const sql = 'INSERT INTO students (firstName, lastName, username, contactNo, course, section, startTime, endTime, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-  db.run(sql, [firstName, lastName, username.trim(), contactNo, course, section, startTime.trim(), endTime.trim(), createdBy], function(err) {
-    if (err) {
-      if (err.message && err.message.includes('UNIQUE constraint failed')) {
-        return res.status(400).json({ error: 'Username already exists' });
+  if (String(password).length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters long' });
+  }
+
+  // Hash password and store
+  bcrypt.hash(password, 10, (hashErr, hashedPassword) => {
+    if (hashErr) return res.status(500).json({ error: 'Error hashing password' });
+
+    const sql = 'INSERT INTO students (firstName, lastName, username, password, contactNo, course, section, startTime, endTime, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    db.run(sql, [firstName, lastName, username.trim(), hashedPassword, contactNo, course, section, startTime.trim(), endTime.trim(), createdBy], function(err) {
+      if (err) {
+        if (err.message && err.message.includes('UNIQUE constraint failed')) {
+          return res.status(400).json({ error: 'Username already exists' });
+        }
+        return res.status(500).json({ error: err.message });
+      } else {
+        res.json({
+          id: this.lastID,
+          firstName,
+          lastName,
+          username,
+          contactNo,
+          course,
+          section,
+          startTime,
+          endTime,
+          createdBy,
+          message: 'Student added successfully'
+        });
       }
-      return res.status(500).json({ error: err.message });
-    } else {
-      res.json({
-        id: this.lastID,
-        firstName,
-        lastName,
-        username,
-        contactNo,
-        course,
-        section,
-        startTime,
-        endTime,
-        createdBy,
-        message: 'Student added successfully'
-      });
-    }
+    });
   });
 });
 
