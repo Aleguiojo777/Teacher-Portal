@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SafeAreaView, View, Text, TextInput, FlatList, StyleSheet, Alert, TouchableOpacity, StatusBar, Image } from 'react-native';
 
 // Change this to your backend host when not using emulator
@@ -11,6 +11,8 @@ const LOGO_URL = null;
 export default function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const usernameRef = useRef('');
+  const passwordRef = useRef('');
   const [token, setToken] = useState(null);
   const [student, setStudent] = useState(null);
   const [attendance, setAttendance] = useState([]);
@@ -18,13 +20,15 @@ export default function App() {
   const [loading, setLoading] = useState(false);
 
   const login = async () => {
-    if (!username || !password) return Alert.alert('Please enter username and password');
+    const u = usernameRef.current || username;
+    const p = passwordRef.current || password;
+    if (!u || !p) return Alert.alert('Please enter username and password');
     setLoading(true);
     try {
       const res = await fetch(`${BACKEND_BASE}/api/student/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username: u, password: p })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -100,8 +104,26 @@ export default function App() {
   const LoginCard = () => (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Student Login</Text>
-      <TextInput placeholder="Username" value={username} onChangeText={setUsername} style={styles.input} autoCapitalize="none" placeholderTextColor="#64748b" />
-      <TextInput placeholder="Password" value={password} onChangeText={setPassword} style={styles.input} secureTextEntry placeholderTextColor="#64748b" />
+      <TextInput
+        placeholder="Username"
+        defaultValue={username}
+        onChangeText={(t) => { usernameRef.current = t; setUsername(t); }}
+        style={styles.input}
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholderTextColor="#64748b"
+        returnKeyType="next"
+      />
+      <TextInput
+        placeholder="Password"
+        defaultValue={password}
+        onChangeText={(t) => { passwordRef.current = t; setPassword(t); }}
+        style={styles.input}
+        secureTextEntry
+        autoCorrect={false}
+        placeholderTextColor="#64748b"
+        returnKeyType="go"
+      />
       <TouchableOpacity style={[styles.primaryButton, loading && styles.buttonDisabled]} onPress={login} disabled={loading}>
         <Text style={styles.primaryButtonText}>{loading ? 'Logging in...' : 'Login'}</Text>
       </TouchableOpacity>
