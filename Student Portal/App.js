@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { SafeAreaView, View, Text, TextInput, FlatList, StyleSheet, Alert, TouchableOpacity, StatusBar, Image, Modal, ScrollView } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import { io as socketIo } from 'socket.io-client';
 
 // Change this to your backend host when not using emulator
 const BACKEND_BASE = 'http://10.0.2.2:3000';
@@ -24,6 +25,7 @@ export default function App() {
   const [student, setStudent] = useState(null);
   const [attendance, setAttendance] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [expoPushToken, setExpoPushToken] = useState(null);
   const [lastNotification, setLastNotification] = useState(null);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
@@ -84,8 +86,57 @@ export default function App() {
     return () => {
       if (subscriptionReceived) subscriptionReceived.remove();
       if (subscriptionResponse) subscriptionResponse.remove();
+      // disconnect socket if present
+      if (socketRef.current) {
+        try { socketRef.current.disconnect(); } catch(e){}
+      }
     };
   }, []);
+
+  // Auto-refresh notifications (poll) while logged in
+  useEffect(() => {
+    if (!token) return;
+
+    // initial fetch of both attendance and notifications
+    fetchAttendance(token);
+    fetchNotifications(token);
+
+    const interval = setInterval(() => {
+      fetchAttendance(token);
+      fetchNotifications(token);
+    }, 30000); // every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [token]);
+
+  // Real-time socket: connect after login and register student room
+  const socketRef = React.useRef(null);
+  useEffect(() => {
+    if (!token || !student) return;
+    try {
+      const socket = socketIo(BACKEND_BASE.replace('http', 'ws'), { transports: ['websocket'] });
+      socketRef.current = socket;
+      socket.on('connect', () => {
+        socket.emit('register', { studentId: student.id });
+      });
+      socket.on('attendance:update', (row) => {
+        // prepend or update attendance list
+        setAttendance(prev => {
+          const exists = prev.findIndex(p => String(p.id) === String(row.id));
+          if (exists === -1) return [row, ...prev];
+          const copy = [...prev]; copy[exists] = row; return copy;
+        });
+      });
+      socket.on('notification', (n) => {
+        setNotifications(prev => [n, ...prev]);
+        setUnreadCount(prev => (showNotificationsModal ? 0 : prev + 1));
+      });
+      socket.on('disconnect', () => { /* no-op */ });
+      return () => { try { socket.disconnect(); } catch(e){} };
+    } catch (e) {
+      console.warn('socket connect failed', e);
+    }
+  }, [token, student, showNotificationsModal]);
 
   async function registerForPushNotificationsAsync() {
     if (!Device.isDevice) {
@@ -136,7 +187,12 @@ export default function App() {
         headers: { Authorization: `Bearer ${t}` }
       });
       const data = await res.json();
-      if (res.ok) setNotifications(data);
+      if (res.ok) {
+        setNotifications(data);
+        // If notifications modal is open, user has viewed them — keep unread at 0.
+        // Otherwise, update unread count to reflect new notifications.
+        setUnreadCount(prev => (showNotificationsModal ? 0 : (Array.isArray(data) ? data.length : 0)));
+      }
     } catch (e) {
       console.warn('notifications fetch error', e);
     }
@@ -154,37 +210,35 @@ export default function App() {
   // Minimal header matching portal style
   const Header = () => (
     <View style={styles.header}>
-      {LOGO_URL ? (
-        <View style={styles.logoRow}>
-          <Image source={{ uri: LOGO_URL }} style={styles.logoImage} resizeMode="contain" />
+      <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
+        {LOGO_URL ? (
+          <View style={styles.logoRow}>
+            <Image source={{ uri: LOGO_URL }} style={styles.logoImage} resizeMode="contain" />
+            <View>
+              <Text style={styles.logoTitle}>Student Portal</Text>
+              <Text style={styles.logoSub}>Student</Text>
+            </View>
+          </View>
+        ) : (
           <View>
-            <Text style={styles.logoTitle}>Teacher Portal</Text>
+            <Text style={styles.logoTitle}>Student Portal</Text>
             <Text style={styles.logoSub}>Student</Text>
           </View>
-        </View>
-      ) : (
-        <View style={{flexDirection:'row', alignItems:'center', justifyContent:'space-between', width: '100%'}}>
-          <View>
-            <Text style={styles.logoTitle}>Teacher Portal</Text>
-            <Text style={styles.logoSub}>Student</Text>
-          </View>
-          <View style={{flexDirection:'row', alignItems:'center'}}>
-            <TouchableOpacity onPress={() => setShowNotificationsModal(true)} style={{marginRight:12}}>
-              <View style={{position:'relative'}}>
-                <Text style={{fontSize:22}}>🔔</Text>
-                {notifications && notifications.length > 0 && (
-                  <View style={styles.notificationBadge}>
-                    <Text style={styles.badgeCount}>{notifications.length}</Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={sendTestNotification}>
-              <Text style={{fontSize:14, color:'#2563eb', fontWeight:'700'}}>Test Notify</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+        )}
+
+        {token && (
+          <TouchableOpacity onPress={() => { setShowNotificationsModal(true); setUnreadCount(0); }} style={{marginLeft:12}}>
+            <View style={{position:'relative'}}>
+              <Text style={{fontSize:22}}>🔔</Text>
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.badgeCount}>{unreadCount}</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 
@@ -229,7 +283,9 @@ export default function App() {
 
   const renderNotification = ({ item }) => (
     <View style={styles.noticeCard}>
+      <Text style={{fontWeight:'700'}}>{item.status || ''}{item.subject ? ` · ${item.subject}` : ''}</Text>
       <Text style={styles.noticeText}>{item.note}</Text>
+      <Text style={{fontSize:12, color:'#94a3b8', marginTop:6}}>{item.date}</Text>
     </View>
   );
 
@@ -238,7 +294,7 @@ export default function App() {
     return (
       <View style={styles.attCard}>
         <View style={{flex:1}}>
-          <Text style={styles.attDate}>{item.attendanceDate}</Text>
+          <Text style={styles.attDate}>{item.attendanceDate} {item.subject ? `· ${item.subject}` : ''}</Text>
           <Text style={styles.attMeta}>Recorded at: {item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}</Text>
         </View>
         <View style={[styles.badge, statusStyle]}>
@@ -263,7 +319,7 @@ export default function App() {
         </View>
 
         <Text style={[styles.sectionTitle, {marginTop:16}]}>Attendance History</Text>
-        {attendance.length === 0 ? <Text style={styles.empty}>No attendance records</Text> : <FlatList data={attendance} keyExtractor={(i) => String(i.id)} renderItem={renderAttendance} />}
+        {attendance.length === 0 ? <Text style={styles.empty}>No attendance records</Text> : <FlatList data={attendance} keyExtractor={(i) => String(i.id)} renderItem={renderAttendance} keyboardShouldPersistTaps="handled" />}
 
         <Modal visible={showNotificationsModal} animationType="slide" onRequestClose={() => setShowNotificationsModal(false)}>
           <SafeAreaView style={{flex:1, backgroundColor:'#f6f9fb'}}>
@@ -271,7 +327,7 @@ export default function App() {
               <Text style={{fontSize:18, fontWeight:'700'}}>Notifications</Text>
               <TouchableOpacity onPress={() => setShowNotificationsModal(false)} style={{padding:8}}><Text style={{color:'#2563eb', fontWeight:'700'}}>Close</Text></TouchableOpacity>
             </View>
-            <ScrollView style={{paddingHorizontal:16}}>
+            <ScrollView style={{paddingHorizontal:16}} keyboardShouldPersistTaps="handled">
               {notifications.length === 0 ? <Text style={{color:'#64748b'}}>No notifications</Text> : notifications.map(n => (
                 <View key={String(n.id)} style={{backgroundColor:'#fff', padding:12, marginBottom:8, borderRadius:8, borderWidth:1, borderColor:'#e6eef9'}}>
                   <Text style={{fontWeight:'700'}}>{n.status || ''}</Text>

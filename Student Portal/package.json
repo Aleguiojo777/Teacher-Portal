@@ -14,5 +14,6 @@
     "react-native": "0.71.14",
     "expo-notifications": "~0.18.1",
     "expo-device": "~5.2.1"
+    ,"socket.io-client": "^4.6.1"
   }
 }

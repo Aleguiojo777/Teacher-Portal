@@ -8,6 +8,8 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const logger = require('./logger');
 const alerts = require('./alerts');
+const http = require('http');
+let io; // will be initialized after HTTP server is created
 
 // Load environment variables
 require('dotenv').config();
@@ -499,7 +501,13 @@ app.post('/api/student/login', (req, res) => {
 
 // Get attendance history for logged-in student
 app.get('/api/student/attendance', verifyStudentToken, (req, res) => {
-  db.all('SELECT id, status, attendanceDate, recordedBy, createdAt FROM attendance WHERE studentId = ? ORDER BY attendanceDate DESC', [req.studentId], (err, rows) => {
+  const sql = `SELECT a.id, a.status, a.attendanceDate, a.recordedBy, a.createdAt, sec.subject
+               FROM attendance a
+               LEFT JOIN students s ON s.id = a.studentId
+               LEFT JOIN sections sec ON sec.sectionName = s.section AND sec.course = s.course
+               WHERE a.studentId = ?
+               ORDER BY a.attendanceDate DESC`;
+  db.all(sql, [req.studentId], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });
@@ -507,10 +515,17 @@ app.get('/api/student/attendance', verifyStudentToken, (req, res) => {
 
 // Notifications for absences or late marks (recent non-present records)
 app.get('/api/student/notifications', verifyStudentToken, (req, res) => {
-  db.all("SELECT id, status, attendanceDate, createdAt FROM attendance WHERE studentId = ? AND status != 'Present' ORDER BY attendanceDate DESC LIMIT 50", [req.studentId], (err, rows) => {
+  const sql = `SELECT a.id, a.status, a.attendanceDate, a.createdAt, sec.subject
+               FROM attendance a
+               LEFT JOIN students s ON s.id = a.studentId
+               LEFT JOIN sections sec ON sec.sectionName = s.section AND sec.course = s.course
+               WHERE a.studentId = ? AND a.status != 'Present'
+               ORDER BY a.attendanceDate DESC
+               LIMIT 50`;
+  db.all(sql, [req.studentId], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    // Map to simple notifications
-    const notifications = (rows || []).map(r => ({ id: r.id, date: r.attendanceDate, status: r.status, note: `${r.status} on ${r.attendanceDate}` }));
+    // Map to simple notifications including subject when available
+    const notifications = (rows || []).map(r => ({ id: r.id, date: r.attendanceDate, status: r.status, subject: r.subject || null, note: `${r.status} on ${r.attendanceDate}` }));
     res.json(notifications);
   });
 });
@@ -961,6 +976,19 @@ function recordAttendance(studentId, status, date, recordedBy, res) {
         console.error('[ERROR] Failed to retrieve saved attendance:', getErr.message);
         return res.status(500).json({ error: getErr.message });
       }
+      // Emit real-time update to the specific student room if socket.io is available
+      try {
+        if (io && row && row.studentId) {
+          io.to(`student:${row.studentId}`).emit('attendance:update', row);
+          if (row.status && row.status !== 'Present') {
+            const notif = { id: row.id, date: row.attendanceDate, status: row.status, subject: null, note: `${row.status} on ${row.attendanceDate}` };
+            io.to(`student:${row.studentId}`).emit('notification', notif);
+          }
+        }
+      } catch (emitErr) {
+        console.error('[WARN] socket emit failed:', emitErr && emitErr.message);
+      }
+
       res.json({ success: true, message: 'Attendance recorded', attendance: row });
     });
   });
@@ -1253,8 +1281,35 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/login.html'));
 });
 
-// Start server
-app.listen(PORT, () => {
+// Start server (use HTTP server so socket.io can attach)
+const server = http.createServer(app);
+
+// Initialize socket.io and allow CORS for development
+try {
+  const { Server } = require('socket.io');
+  io = new Server(server, { cors: { origin: '*' } });
+
+  io.on('connection', (socket) => {
+    console.log('[IO] client connected', socket.id);
+    socket.on('register', (payload) => {
+      // payload expected: { studentId }
+      try {
+        const sid = payload && payload.studentId;
+        if (sid) {
+          socket.join(`student:${sid}`);
+          console.log('[IO] socket joined room student:' + sid);
+        }
+      } catch (e) { /* ignore */ }
+    });
+    socket.on('disconnect', () => {
+      console.log('[IO] client disconnected', socket.id);
+    });
+  });
+} catch (e) {
+  console.warn('[WARN] socket.io failed to initialize:', e && e.message);
+}
+
+server.listen(PORT, () => {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`🔐 TEACHER PORTAL - SECURE SERVER STARTED`);
   console.log(`${'='.repeat(60)}`);
