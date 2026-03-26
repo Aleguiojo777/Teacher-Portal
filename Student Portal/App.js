@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SafeAreaView, View, Text, TextInput, FlatList, StyleSheet, Alert, TouchableOpacity, StatusBar, Image } from 'react-native';
+import { SafeAreaView, View, Text, TextInput, FlatList, StyleSheet, Alert, TouchableOpacity, StatusBar, Image, Modal, ScrollView } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 
 // Change this to your backend host when not using emulator
 const BACKEND_BASE = 'http://10.0.2.2:3000';
@@ -7,6 +9,11 @@ const BACKEND_BASE = 'http://10.0.2.2:3000';
 // put the file on a server or update this value to a reachable URL.
 // Example: const LOGO_URL = 'https://example.com/my-logo.png'
 const LOGO_URL = null;
+
+// Configure how notifications are shown when the app is foregrounded
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: false, shouldSetBadge: false })
+});
 
 export default function App() {
   const [username, setUsername] = useState('');
@@ -17,6 +24,9 @@ export default function App() {
   const [student, setStudent] = useState(null);
   const [attendance, setAttendance] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [expoPushToken, setExpoPushToken] = useState(null);
+  const [lastNotification, setLastNotification] = useState(null);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const login = async () => {
@@ -38,12 +48,72 @@ export default function App() {
         setStudent(data.student);
         fetchAttendance(data.token);
         fetchNotifications(data.token);
+        // register for notifications (best-effort)
+        try { registerForPushNotificationsAsync().then(t => setExpoPushToken(t)); } catch(e){/* ignore */}
       }
     } catch (e) {
       Alert.alert('Network error', String(e));
     } finally {
       setLoading(false);
     }
+  };
+
+  // Register and set up notification listeners
+  useEffect(() => {
+    let subscriptionReceived;
+    let subscriptionResponse;
+    async function setup() {
+      try {
+        const token = await registerForPushNotificationsAsync();
+        setExpoPushToken(token);
+      } catch (e) {
+        // ignore
+      }
+
+      subscriptionReceived = Notifications.addNotificationReceivedListener(notification => {
+        setLastNotification(notification);
+      });
+
+      subscriptionResponse = Notifications.addNotificationResponseReceivedListener(response => {
+        // Open notification list when user taps the notification
+        setShowNotificationsModal(true);
+      });
+    }
+    setup();
+
+    return () => {
+      if (subscriptionReceived) subscriptionReceived.remove();
+      if (subscriptionResponse) subscriptionResponse.remove();
+    };
+  }, []);
+
+  async function registerForPushNotificationsAsync() {
+    if (!Device.isDevice) {
+      return null;
+    }
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      return null;
+    }
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    return tokenData.data;
+  }
+
+  // Helper to send a local test notification (used for testing)
+  const sendTestNotification = async () => {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Attendance Alert',
+        body: 'You have a recent absence or late mark. Tap to view.',
+        data: { openNotifications: true }
+      },
+      trigger: { seconds: 1 }
+    });
   };
 
   const fetchAttendance = async (t = token) => {
@@ -93,9 +163,19 @@ export default function App() {
           </View>
         </View>
       ) : (
-        <View>
-          <Text style={styles.logoTitle}>Teacher Portal</Text>
-          <Text style={styles.logoSub}>Student</Text>
+        <View style={{flexDirection:'row', alignItems:'center', justifyContent:'space-between', width: '100%'}}>
+          <View>
+            <Text style={styles.logoTitle}>Teacher Portal</Text>
+            <Text style={styles.logoSub}>Student</Text>
+          </View>
+          <View style={{flexDirection:'row', alignItems:'center'}}>
+            <TouchableOpacity onPress={() => setShowNotificationsModal(true)} style={{marginRight:12}}>
+              <Text style={{fontSize:22}}>🔔</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={sendTestNotification}>
+              <Text style={{fontSize:14, color:'#2563eb', fontWeight:'700'}}>Test Notify</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </View>
@@ -180,6 +260,23 @@ export default function App() {
 
         <Text style={[styles.sectionTitle, {marginTop:16}]}>Attendance History</Text>
         {attendance.length === 0 ? <Text style={styles.empty}>No attendance records</Text> : <FlatList data={attendance} keyExtractor={(i) => String(i.id)} renderItem={renderAttendance} />}
+
+        <Modal visible={showNotificationsModal} animationType="slide" onRequestClose={() => setShowNotificationsModal(false)}>
+          <SafeAreaView style={{flex:1, backgroundColor:'#f6f9fb'}}>
+            <View style={{padding:16, flexDirection:'row', justifyContent:'space-between', alignItems:'center'}}>
+              <Text style={{fontSize:18, fontWeight:'700'}}>Notifications</Text>
+              <TouchableOpacity onPress={() => setShowNotificationsModal(false)} style={{padding:8}}><Text style={{color:'#2563eb', fontWeight:'700'}}>Close</Text></TouchableOpacity>
+            </View>
+            <ScrollView style={{paddingHorizontal:16}}>
+              {notifications.length === 0 ? <Text style={{color:'#64748b'}}>No notifications</Text> : notifications.map(n => (
+                <View key={String(n.id)} style={{backgroundColor:'#fff', padding:12, marginBottom:8, borderRadius:8, borderWidth:1, borderColor:'#e6eef9'}}>
+                  <Text style={{fontWeight:'700'}}>{n.status || ''}</Text>
+                  <Text style={{color:'#64748b', marginTop:4}}>{n.note || (`${n.status} on ${n.date}`)}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
 
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.ghostButton} onPress={() => { fetchAttendance(); fetchNotifications(); }}>
