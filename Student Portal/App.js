@@ -170,7 +170,14 @@ export default function App() {
           </View>
           <View style={{flexDirection:'row', alignItems:'center'}}>
             <TouchableOpacity onPress={() => setShowNotificationsModal(true)} style={{marginRight:12}}>
-              <Text style={{fontSize:22}}>🔔</Text>
+              <View style={{position:'relative'}}>
+                <Text style={{fontSize:22}}>🔔</Text>
+                {notifications && notifications.length > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.badgeCount}>{notifications.length}</Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
             <TouchableOpacity onPress={sendTestNotification}>
               <Text style={{fontSize:14, color:'#2563eb', fontWeight:'700'}}>Test Notify</Text>
@@ -255,9 +262,6 @@ export default function App() {
           <TouchableOpacity style={styles.logoutBtn} onPress={logout}><Text style={styles.logoutText}>Logout</Text></TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionTitle}>Notifications</Text>
-        {notifications.length === 0 ? <Text style={styles.empty}>No recent alerts</Text> : <FlatList data={notifications} keyExtractor={(i) => String(i.id)} renderItem={renderNotification} />}
-
         <Text style={[styles.sectionTitle, {marginTop:16}]}>Attendance History</Text>
         {attendance.length === 0 ? <Text style={styles.empty}>No attendance records</Text> : <FlatList data={attendance} keyExtractor={(i) => String(i.id)} renderItem={renderAttendance} />}
 
@@ -321,4 +325,6 @@ const styles = StyleSheet.create({
   actionRow: { marginTop: 10, alignItems: 'flex-end' },
   ghostButton: { padding: 10, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#cbd5e1' },
   ghostText: { color: '#2563eb', fontWeight: '700' }
+  ,notificationBadge: { position: 'absolute', right: -6, top: -6, backgroundColor: '#ef4444', minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  badgeCount: { color: '#fff', fontSize: 11, fontWeight: '700' }
 });
